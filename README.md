@@ -1,2 +1,2 @@
 # Auto-CRUD
-Laravel package providing default CRUD for Eloquent models
+Providing default CRUD for Eloquent models and the Laravel Framework
