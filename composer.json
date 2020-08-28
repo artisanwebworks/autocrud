@@ -1,0 +1,30 @@
+{
+    "name": "artisanwebworks/autocrud",
+    "description": "Laravel Auto-CRUD default API implementation",
+    "keywords": ["laravel", "api", "crud"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "David Dosanjh ",
+            "email": "daviddosanjh@gmail.com"
+        }
+    ],
+    "require": {
+        "illuminate/database": "^7.26"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.3",
+        "orchestra/testbench": "^5.4",
+        "ext-pdo-sqlite": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "ArtisanWebworks\\AutoCRUD\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ArtisanWebworks\\AutoCRUD\\Test\\": "tests/"
+        }
+    }
+}
