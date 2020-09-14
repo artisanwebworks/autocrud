@@ -1,5 +1,6 @@
 {
     "name": "artisanwebworks/autocrud",
+    "type": "library",
     "description": "Laravel Auto-CRUD default API implementation",
     "keywords": ["laravel", "api", "crud"],
     "license": "MIT",
