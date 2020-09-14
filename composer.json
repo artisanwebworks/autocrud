@@ -26,9 +26,5 @@
         "psr-4": {
             "ArtisanWebworks\\AutoCRUD\\Test\\": "tests/"
         }
-    },
-
-    "repositories": {
-
     }
 }
