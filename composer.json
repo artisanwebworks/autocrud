@@ -10,12 +10,12 @@
         }
     ],
     "require": {
-        "illuminate/database": "^7.26"
+        "ext-json": "*",
+        "illuminate/database": "^7.27"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.3",
-        "orchestra/testbench": "^5.4",
-        "ext-pdo-sqlite": "*"
+        "laravel/framework": "^7.26",
+        "orchestra/testbench": "^5.5"
     },
     "autoload": {
         "psr-4": {
@@ -26,5 +26,9 @@
         "psr-4": {
             "ArtisanWebworks\\AutoCRUD\\Test\\": "tests/"
         }
+    },
+
+    "repositories": {
+
     }
 }

@@ -3,23 +3,18 @@ namespace ArtisanWebworks\AutoCRUD;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Validation\ValidationException;
 
 abstract class ValidatingModel extends Model {
 
   protected $fillable = [];
-  protected $rules = [];
-  protected $messages = [];
-
+  protected array $rules = [];
+  protected array $messages = [];
 
   /**
    * @throws ValidationException
    */
   public function validate() {
-
-    echo "calling validation\n";
 
     if ($this->rules) {
       Validator::make($this->toArray(), $this->rules, $this->messages)->validate();
@@ -35,9 +30,9 @@ abstract class ValidatingModel extends Model {
     parent::boot();
 
     $handler = function(ValidatingModel $model) {
-      echo "\nvalidation result\n";
-      var_dump($model->validate());
+      $model->validate();
     };
+
     static::creating($handler);
     static::updating($handler);
   }

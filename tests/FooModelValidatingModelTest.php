@@ -7,7 +7,7 @@ namespace ArtisanWebworks\AutoCRUD\Test;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 use Illuminate\Validation\ValidationException;
 
-class ValidatingModelTest extends BaseAutoCRUDTest {
+class FooModelValidatingModelTest extends BaseAutoCRUDTest {
 
   /** @test */
   public function rule_violation_throws_exception_on_create() {
@@ -16,7 +16,7 @@ class ValidatingModelTest extends BaseAutoCRUDTest {
       $this->fail("expected ValidationException");
     } catch (ValidationException $e) {
       $this->assertEquals(
-        "name must be at least 2 characters",
+        "name must be at least 3 characters",
         $e->validator->getMessageBag()->get('name')[0]
       );
     }

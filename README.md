@@ -1,8 +1,13 @@
 # Laravel Auto-CRUD
-* Providing default CRUD API implementation for Eloquent models
-* Enables specifying validation rules on the Model
+* Providing default CRUD ajax routes for Eloquent models
+* Automatically applies validation rules specified on the Model
 
-philosophical underpinning:
+I created this project because I desired sleek and simple means of allowing my 
+front-end to perform asynchronous operation on Eloquent models
+
+An alternative to JSON:API, which is more feature rich and configurable, and
+perhaps a more appropriate choice if exposing an full-fledged API to various public
+consumers.
 
 * constraints on model attributes (validation rules) are valuable descriptive information
 that help convey what a model actually *is* -- so the rules should be part
@@ -20,3 +25,7 @@ CRUD controller, and realize our models need the abstraction layer above them
 to tell them "what they are". Another common concern with coupling validation
 rules with the Controller layer, is inconsistency between with other Model consumers,
 like the Console.
+
+One thing I love about Laravel, is that whenever I need to deviate from standard behavior,
+there is always a way to do it elegantly. It's a great balance between out-of-the-box
+convenience, and customization potential.

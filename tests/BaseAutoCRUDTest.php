@@ -27,12 +27,10 @@ abstract class BaseAutoCRUDTest extends TestCase {
   }
 
   /**
-   * Setup the test environment.
+   * Specify test environment setup before each test.
    */
   protected function setUp(): void {
     parent::setUp();
-
-    echo "hello:" . __DIR__ . '/database/migrations';
     $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
   }
 
