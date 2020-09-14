@@ -12,11 +12,11 @@
     ],
     "require": {
         "ext-json": "*",
-        "illuminate/database": "^7.27"
+        "illuminate/database": "*"
     },
     "require-dev": {
-        "laravel/framework": "^7.26",
-        "orchestra/testbench": "^5.5"
+        "laravel/framework": "*",
+        "orchestra/testbench": "*"
     },
     "autoload": {
         "psr-4": {
