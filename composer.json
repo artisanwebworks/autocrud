@@ -1,7 +1,7 @@
 {
     "name": "artisanwebworks/autocrud",
     "type": "library",
-    "description": "Laravel Auto-CRUD default API implementation",
+    "description": "Laravel Auto-CRUD API generation for Eloquent models",
     "keywords": ["laravel", "api", "crud"],
     "license": "MIT",
     "authors": [
@@ -12,10 +12,9 @@
     ],
     "require": {
         "ext-json": "*",
-        "illuminate/database": "*"
+        "laravel/framework": "*"
     },
     "require-dev": {
-        "laravel/framework": "*",
         "orchestra/testbench": "*"
     },
     "autoload": {
@@ -26,6 +25,13 @@
     "autoload-dev": {
         "psr-4": {
             "ArtisanWebworks\\AutoCRUD\\Test\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ArtisanWebworks\\AutoCrud\\AutoCrudServiceProvider"
+            ]
         }
     }
 }

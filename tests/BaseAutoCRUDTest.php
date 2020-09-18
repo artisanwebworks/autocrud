@@ -3,6 +3,7 @@
 namespace ArtisanWebworks\AutoCRUD\Test;
 
 // External
+use ArtisanWebworks\AutoCRUD\AutoCRUDServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Illuminate\Contracts\Foundation\Application;
 
@@ -32,6 +33,10 @@ abstract class BaseAutoCRUDTest extends TestCase {
   protected function setUp(): void {
     parent::setUp();
     $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
+  }
+
+  protected function getPackageProviders($app) {
+    return [AutoCRUDServiceProvider::class];
   }
 
 }

@@ -4,17 +4,21 @@
 namespace ArtisanWebworks\AutoCRUD;
 
 // Vendor
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Closure;
 use Exception;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Class GenericAPIController
@@ -30,9 +34,14 @@ use Exception;
 class GenericAPIController extends BaseController {
 
   /**
-   * Subclasses can bind to a specific model by defining this property.
    *
-   * @var string Fully qualified classname of Eloquent ValidatingModel.
+   */
+  protected const DEFAULT_MAX_DEPTH = 1;
+
+  /**
+   * Specialized subclasses can bind to a specific model by defining this property.
+   *
+   * @var string Full classname of Eloquent ValidatingModel.
    */
   protected static string $modelType;
 
@@ -43,7 +52,6 @@ class GenericAPIController extends BaseController {
    * @var string Fully qualified classname of JsonResource.
    */
   protected static string $jsonResourceType;
-
 
   /**
    * Defines routes exposing generic CRUD for a ValidatingModel type.
@@ -144,10 +152,15 @@ class GenericAPIController extends BaseController {
     );
   }
 
-  protected static function retrieveAll(string $modelType): JsonResponse {
+  protected static function retrieveAll(ResourceNode $node): JsonResponse {
     return static::tryCRUD(
-      function () use ($modelType) {
-        $allModels = $modelType::all();
+      function () use ($node) {
+
+        $all = null;
+        if (!$node->parent) {
+          $allModels = $node->modelType::all();
+        }
+
         return static::jsonModelResponse($allModels, Response::HTTP_OK);
       }
     );
@@ -321,6 +334,69 @@ class GenericAPIController extends BaseController {
       ["$id is not a valid $resourceName id"],
       Response::HTTP_NOT_FOUND
     );
+  }
+
+
+  /**
+   * Define resour
+   *
+   * @param array<ResourceNode> $lineage : list of RelationLineageNode, which correspond
+   *   to
+   * @param $maxDepth
+   * @throws \ReflectionException
+   */
+  public static function recursivelyDeclareRelationRoutes(
+    array $lineage,
+    $maxDepth
+  ) {
+
+    /** @var ResourceNode $currentNode */
+    $currentNode = end($lineage);
+
+    echo " Declaring for resource $currentNode->routeName: $currentNode->routeURI\n";
+    static::declareImmediateRoutesForNode($currentNode);
+
+    if($currentNode->depth === $maxDepth) {
+      return;
+    }
+
+    // Iterate through public methods belonging to the current node's Eloquent model
+    $class = new \ReflectionClass($currentNode->modelType);
+    foreach ($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+
+      $returnType = $method->getReturnType();
+      if (!$returnType) {
+        continue;
+      }
+
+      // For each "has" relation, recursively declare routes
+      $isHasMany = $returnType->getName() === HasMany::class;
+      $isHasOne = $returnType->getName() === HasOne::class;
+      if ($isHasOne || $isHasMany) {
+        $relationMethodName = $method->getName();
+        $blankEntity = new $currentNode->modelType();
+        $relationTargetType = get_class($blankEntity->$relationMethodName()->getRelated());
+        $lineage[] = new ResourceNode($relationTargetType, $currentNode, $isHasMany);
+        static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
+      }
+    }
+
+  }
+
+  private static function declareImmediateRoutesForNode(ResourceNode $node) {
+
+    // Retrieve all
+    echo "\t retrieve all: GET $node->routeURI \n";
+    Route::get(
+      $node->routeURI,
+      function (...$resourceIdStack) use ($node) {
+
+        $node->authorize(Operation::RETRIEVE_ALL, Auth::id(), $resourceIdStack);
+
+//        return static::retrieveAll($node);
+      }
+    )->name("$node->routeName.retrieve-all");
+
   }
 
 }

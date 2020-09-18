@@ -5,7 +5,9 @@ namespace ArtisanWebworks\AutoCRUD\Test;
 
 // Internal
 use ArtisanWebworks\AutoCRUD\GenericAPIController;
+use ArtisanWebworks\AutoCRUD\ResourceNode;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
 
 // Vendor
 use Illuminate\Support\Collection;
@@ -19,15 +21,21 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
     // Declare routes
     GenericAPIController::declareRoutes(FooModel::class);
 
+
 //    echo "\nROUTES\n";
 //    $routes = collect(Route::getRoutes())->each(function ($route) {
 //      echo $route->getName() . "  --  " . $route->uri() . "\n";
 //    });
 //    echo "\n";
 
-    // Setup base DB state for all tests
-    FooModel::create(['name' => 'some foo']); // ID = 1
+    // Seed starting DB state for all tests
+
+    $firstFoo = FooModel::create(['name' => 'some foo']); // ID = 1
+    $bar1 = BarModel::create(['level' => 1, 'foo_model_id' => $firstFoo->id]);
+    $bar2 = BarModel::create(['level' => 2, 'foo_model_id' => $firstFoo->id]);
+
     FooModel::create(['name' => 'some other foo']); // ID = 2
+
   }
 
   /** @test */
@@ -35,20 +43,22 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
     $uri = route('api.foomodel.retrieve', ['id' => 1]);
     $response = $this->get($uri);
     $response->assertJson(['data' => ['name' => 'some foo']]);
-    $response->assertStatus(200 /** OK */);
+    $response->assertStatus(200/** OK */);
   }
 
   /** @test */
   public function retrieve_all_foo_resources() {
     $uri = route('api.foomodel.retrieve-all');
     $response = $this->get($uri);
-    $response->assertJson([
-      'data' => [
-        ['name' => 'some foo'],
-        ['name' => 'some other foo']
+    $response->assertJson(
+      [
+        'data' => [
+          ['name' => 'some foo'],
+          ['name' => 'some other foo']
+        ]
       ]
-    ]);
-    $response->assertStatus(200 /** OK */);
+    );
+    $response->assertStatus(200/** OK */);
   }
 
   /** @test */
@@ -56,7 +66,7 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
     $uri = route('api.foomodel.create');
     $response = $this->post($uri, ['name' => 'new foo']);
     $response->assertJson(['data' => ['name' => 'new foo']]);
-    $response->assertStatus(201 /** CREATED */);
+    $response->assertStatus(201/** CREATED */);
   }
 
   /** @test */
@@ -64,15 +74,17 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
     $uri = route('api.foomodel.update', ['id' => 1]);
     $response = $this->patch($uri, ['name' => 'updated foo']);
     $response->assertJson(['data' => ['name' => 'updated foo']]);
-    $response->assertStatus(200 /** OK */);
+    $response->assertStatus(200/** OK */);
   }
 
   /** @test */
   public function update_with_validation_rule_violation_returns_error() {
     $uri = route('api.foomodel.update', ['id' => 1]);
     $response = $this->patch($uri, ['name' => 'fu']);
-    $response->assertJson(['errors' => ['name' => 'name must be at least 3 characters']]);
-    $response->assertStatus(422 /** UNPROCESSABLE ENTITY */);
+    $response->assertJson(
+      ['errors' => ['name' => 'name must be at least 3 characters']]
+    );
+    $response->assertStatus(422/** UNPROCESSABLE ENTITY */);
   }
 
   /** @test */
@@ -101,12 +113,26 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
   public function delete_a_foo_resource() {
     $uri = route('api.foomodel.delete', ['id' => 1]);
     $response = $this->delete($uri);
-    $response->assertStatus(204 /** NO CONTENT */);
+    $response->assertStatus(204/** NO CONTENT */);
 
     // Try to retrieve to confirm actually deleted
     $uri = route('api.foomodel.retrieve', ['id' => 1]);
     $response = $this->get($uri);
     $response->assertStatus(404);
+  }
+
+  /** @test */
+  public function recursive_routes_defined_based_on_model_relations() {
+    $rootNode = new ResourceNode(FooModel::class, null, true);
+    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], 1);
+    $response = $this->get('api\\foomodel\\1\\barmodels');
+  }
+
+  /** @test */
+  public function retrieve_bars_via_foo_parent() {
+    $uri = route('api.foomodel.barmodels.retrieve-all');
+    $response = $this->get($uri);
+    $response->assertStatus(200);
   }
 
 }

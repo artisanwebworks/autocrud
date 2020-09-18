@@ -3,6 +3,7 @@
 namespace ArtisanWebworks\AutoCRUD\Test\Fixtures;
 
 use ArtisanWebworks\AutoCRUD\ValidatingModel;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FooModel extends ValidatingModel {
 
@@ -15,5 +16,9 @@ class FooModel extends ValidatingModel {
     //      'between' => 'The :attribute must be between :min - :max.',
     //      'in'      => 'The :attribute must be one of the following types: :values',
   ];
+
+  public function barModels(): HasMany {
+    return $this->hasMany('ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel');
+  }
 
 }
