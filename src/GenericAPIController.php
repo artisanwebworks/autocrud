@@ -24,10 +24,15 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * Class GenericAPIController
  *
  * For Eloquent models extending ValidatingModel, exposes generic CRUD API route
- * implementations.
+ * implementations, including validation and authorization.
  *
- * Subclasses are expected to bind to a particular ValidatingModel type in order
- * to customize CRUD logic for that type.
+ * Sub-resource routes are inferred from Model relations.
+ *
+ * Built-in authorization confirms the target resource is associated with the logged in user,
+ * according to rules defined in config('auto-crud.access-rules').
+ *
+ * Subclasses may bind to a specific model to specialize some controller behavior, while
+ * still leveraging default logic.
  *
  * @package ArtisanWebworks\AutoCRUD
  */
@@ -58,76 +63,22 @@ class GenericAPIController extends BaseController {
    *
    * @param string|null $forModelType omitted when called against a subclass.
    *
-   * @param array $options
+   * @param array $options TODO: implement these
    *
    *    'route-prefix': changes prefix used in route URI and name from default 'api'
    *
    *    'only': array of CRUD operations to expose, expressed as any combination of the following:
    *            'retrieve', 'retrieve-all', 'create', 'update', 'delete'
+   *
+   *    'max-depth': the number of sub-resources to be chained together in a route URI
+   * @throws \ReflectionException
    */
   public static function declareRoutes(
     string $forModelType = null,
     array $options = []
   ) {
-
-    // Subclasses of the GenericAPIController are specifically bound to a
-    // ValidatingModel type.
-    $modelType = static::$modelType ?? $forModelType;
-    $modelName = last(explode('\\', $modelType));
-    $nameLower = strtolower($modelName);
-    $prefix = $options['route-prefix'] ?? "api";
-    $allResourcesPath = "$prefix/{$nameLower}s";
-    $specificResourcePath = "$allResourcesPath/{id}";
-    $routeNameBase = "$prefix.{$nameLower}";
-
-    // Create
-    Route::post(
-      $allResourcesPath,
-
-      function (Request $req) use ($modelType) {
-        return static::updateOrCreate($req, $modelType, null);
-      }
-
-    )->name("{$routeNameBase}.create");
-
-    // Retrieve one
-    Route::get(
-      $specificResourcePath,
-
-      function ($id) use ($modelType) {
-        return static::retrieve($modelType, $id);
-      }
-
-    )->name("{$routeNameBase}.retrieve");
-
-    // Retrieve all
-    Route::get(
-      $allResourcesPath,
-
-      function () use ($modelType) {
-        return static::retrieveAll($modelType);
-      }
-    )->name("{$routeNameBase}.retrieve-all");
-
-    // Update
-    Route::patch(
-      $specificResourcePath,
-
-      function (Request $req, $id) use ($modelType) {
-        return static::updateOrCreate($req, $modelType, $id);
-      }
-
-    )->name("{$routeNameBase}.update");
-
-    // Delete
-    Route::delete(
-      $specificResourcePath,
-
-      function ($id) use ($modelType) {
-        return static::delete($modelType, $id);
-      }
-
-    )->name("{$routeNameBase}.delete");
+    $rootNode = new ResourceNode($forModelType, null, true);
+    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], 1);
   }
 
   protected static function retrieve(
@@ -260,7 +211,9 @@ class GenericAPIController extends BaseController {
 
       return $crudOp();
 
-    } catch (Exception $e) {
+    }
+    catch
+    catch (Exception $e) {
 
       static::logCriticalError($e);
       return new JsonResponse(
@@ -390,10 +343,8 @@ class GenericAPIController extends BaseController {
     Route::get(
       $node->routeURI,
       function (...$resourceIdStack) use ($node) {
-
         $node->authorize(Operation::RETRIEVE_ALL, Auth::id(), $resourceIdStack);
-
-//        return static::retrieveAll($node);
+        return static::retrieveAll($node);
       }
     )->name("$node->routeName.retrieve-all");
 

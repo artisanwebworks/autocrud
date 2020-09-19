@@ -4,6 +4,9 @@
 namespace ArtisanWebworks\AutoCRUD;
 
 
+use Illuminate\Auth\Access\AuthorizationException;
+use function PHPUnit\Framework\isFalse;
+
 /**
  * Class ResourceNode
  *
@@ -118,15 +121,10 @@ class ResourceNode {
     while ($resourceIdStack) {
       $id = array_pop($resourceIdStack);
       $instance = $this->instantiateModel($id);
-      if (!$instance) {
-        return false;
+      if (!$instance || static::userCanAccessInstance($userId, $instance)) {
+        throw new ResourceAccessDeniedException();
       }
-      switch (static::attemptAuthorizationAgainstInstance($userId, $instance)) {
-        case "accept":
-          return true;
-        case "reject":
-          return false;
-      }
+
     }
 
     return false;
@@ -142,26 +140,37 @@ class ResourceNode {
    *
    * @param $userId
    * @param $instance
-   * @return string: one of three outcomes: "accept", "reject", "undetermined"
+   * @return bool: true if authorized
    */
-  private static function attemptAuthorizationAgainstInstance($userId, $instance) {
+  private static function userCanAccessInstance($userId, $instance) {
 
-    echo "attempting to authorize $userId against instance $instance->id";
+    echo "attempting to authorize $userId against instance $instance->id\n";
     $instanceClass = get_class($instance);
+    $ruleIndex = 0;
     foreach (config('auto-crud.access-rules') as $rule) {
+      $rulePrefix = "\tRULE $ruleIndex: ";
+      $ruleIndex++;
 
       // An access rule optionally specific to a model type
       if (isset($rule['model']) && $rule['model'] !== $instanceClass) {
+        echo "$rulePrefix indeterminate due to class condition mismatch\n";
         continue;
       }
 
       // The first qualifying property settles the authorization attempt;
       // denying if its value does not match.
-      if (isset($instance->$rule['property'])) {
-        return $instance->$rule['property'] === $userId ? "accept" : "reject";
+      $propertyName = $rule['property'];
+      if (isset($instance[$propertyName])) {
+        $resolution = $instance[$propertyName] === $userId;
+        echo "$rulePrefix property condition resolved to " . ($resolution? "accept" : "reject") . "\n";
+        return $resolution;
       }
+
+      echo "$rulePrefix rule indeterminate since property not observed on instance\n";
     };
 
-    return "undetermined";
+    // No rule can make a determination so reject.
+    echo "\tall rules failed to make determination so defaulting to reject";
+    return false;
   }
 }

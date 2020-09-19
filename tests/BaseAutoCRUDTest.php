@@ -2,11 +2,10 @@
 
 namespace ArtisanWebworks\AutoCRUD\Test;
 
-// External
 use ArtisanWebworks\AutoCRUD\AutoCRUDServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Illuminate\Contracts\Foundation\Application;
-
+use Illuminate\Support\Facades\Route;
 
 abstract class BaseAutoCRUDTest extends TestCase {
 
@@ -37,6 +36,17 @@ abstract class BaseAutoCRUDTest extends TestCase {
 
   protected function getPackageProviders($app) {
     return [AutoCRUDServiceProvider::class];
+  }
+
+
+  // ---------- HELPERS ---------- //
+
+  public static function printRoutes() {
+    echo "\nROUTES\n";
+    $routes = collect(Route::getRoutes())->each(function ($route) {
+      echo $route->getName() . "  --  " . $route->uri() . "\n";
+    });
+    echo "\n";
   }
 
 }

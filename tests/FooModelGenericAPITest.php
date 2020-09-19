@@ -8,10 +8,11 @@ use ArtisanWebworks\AutoCRUD\GenericAPIController;
 use ArtisanWebworks\AutoCRUD\ResourceNode;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
+use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
 
 // Vendor
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 class FooModelGenericAPITest extends BaseAutoCRUDTest {
 
@@ -21,15 +22,11 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
     // Declare routes
     GenericAPIController::declareRoutes(FooModel::class);
 
-
-//    echo "\nROUTES\n";
-//    $routes = collect(Route::getRoutes())->each(function ($route) {
-//      echo $route->getName() . "  --  " . $route->uri() . "\n";
-//    });
-//    echo "\n";
+    // Mock the the logged in user id return from Auth Facade
+    $loggedInUser = User::create(['username' => 'mr mock']);
+    Auth::shouldReceive('id')->andReturn($loggedInUser);
 
     // Seed starting DB state for all tests
-
     $firstFoo = FooModel::create(['name' => 'some foo']); // ID = 1
     $bar1 = BarModel::create(['level' => 1, 'foo_model_id' => $firstFoo->id]);
     $bar2 = BarModel::create(['level' => 2, 'foo_model_id' => $firstFoo->id]);
@@ -123,8 +120,11 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
 
   /** @test */
   public function recursive_routes_defined_based_on_model_relations() {
-    $rootNode = new ResourceNode(FooModel::class, null, true);
-    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], 1);
+    $mockedAuthUserId = 777;
+
+    var_dump(Auth::id());
+
+    echo "Retrieving via API";
     $response = $this->get('api\\foomodel\\1\\barmodels');
   }
 
