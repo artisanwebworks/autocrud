@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @package ArtisanWebworks\AutoCRUD
  */
 class GenericAPIController extends BaseController {
+  use AuthorizesCRUDOperations;
 
   /**
    *
@@ -77,22 +78,22 @@ class GenericAPIController extends BaseController {
     string $forModelType = null,
     array $options = []
   ) {
-    $rootNode = new ResourceNode($forModelType, null, true);
+    $rootNode = new ResourceNodeSchema($forModelType, null, true);
     GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], 1);
   }
 
-  protected static function retrieve(
-    string $modelType,
-    int $modelId
+  protected static function retrieveOne(
+    ResourceNodeSchema $schema,
+    int $id
   ): JsonResponse {
     return static::tryCRUD(
-      function () use ($modelType, $modelId) {
+      function () use ($schema, $id) {
 
         /** @noinspection PhpUndefinedMethodInspection */
-        $model = $modelType::find($modelId);
+        $model = $schema->modelType::find($id);
 
         if (!$model) {
-          return self::invalidIdResponse($modelType, $modelId);
+          return self::invalidIdResponse($schema->modelType, $id);
         }
 
         return static::jsonModelResponse(
@@ -103,16 +104,31 @@ class GenericAPIController extends BaseController {
     );
   }
 
-  protected static function retrieveAll(ResourceNode $node): JsonResponse {
+  protected static function retrieveAll(
+    ResourceNodeSchema $schema,
+    ?int $parentId
+  ): JsonResponse {
     return static::tryCRUD(
-      function () use ($node) {
+      function () use ($schema, $parentId) {
 
         $all = null;
-        if (!$node->parent) {
-          $allModels = $node->modelType::all();
+        if (!$schema->parent) {
+
+          // If this is a root level resource, we access all the corresponding models
+          // via the Model Facade class.
+          $all = $schema->modelType::all();
+        }
+        else {
+
+          // If this resource is a sub-resource, we invoke the parent instance's
+          // relationship property
+          $all =
+            $schema->parent->instantiateModel(
+              $parentId
+            )[$schema->relationIdentifier];
         }
 
-        return static::jsonModelResponse($allModels, Response::HTTP_OK);
+        return static::jsonModelResponse($all, Response::HTTP_OK);
       }
     );
   }
@@ -122,23 +138,22 @@ class GenericAPIController extends BaseController {
    * Extraneous request parameters will result in error.
    *
    * @param Request $req
-   * @param string $modelType : fully qualified class name of a ValidatingModel corresponding to resource
-   * @param int|null $existingModelId : operation inferred to be update if defined
-   * @return JsonResponse: the updated/created json resource, or an error response
+   * @param ResourceNodeSchema $schema
+   * @param int|null $existingModelId - operation inferred to be update if defined
+   * @return JsonResponse - the updated/created json resource, or an error response
    */
   protected static function updateOrCreate(
     Request $req,
-    string $modelType,
+    ResourceNodeSchema $schema,
     int $existingModelId = null
   ): JsonResponse {
     return static::tryCRUD(
-      function () use ($req, $modelType, $existingModelId) {
+      function () use ($req, $schema, $existingModelId) {
 
-        // Reject request if it includes an unrecognized or non-fillable field
-        $modelInstance = new $modelType;
-        /** @var ValidatingModel $modelInstance */
+        // Reject request if it includes a non-fillable field.
+        $blankInstance = new $schema->modelType ();
         foreach ($req->keys() as $propertyName) {
-          if (!$modelInstance->isFillable($propertyName)) {
+          if (!$blankInstance->isFillable($propertyName)) {
             return static::badRequestResponse(
               ["$propertyName is an unrecognized field"]
             );
@@ -149,15 +164,14 @@ class GenericAPIController extends BaseController {
           $targetInstance = null;
           $isUpdate = $existingModelId !== null;
           if ($isUpdate) {
-            /** @var ValidatingModel $targetInstance */
-            $targetInstance = $modelType::find($existingModelId);
+            $targetInstance = $schema->modelType::find($existingModelId);
             if (!$targetInstance) {
-              return static::invalidIdResponse($modelType, $existingModelId);
+              return static::invalidIdResponse($schema->modelType, $existingModelId);
             }
             $targetInstance->update($req->all());
           }
           else {
-            $targetInstance = $modelType::create($req->all());
+            $targetInstance = $schema->modelType::create($req->all());
           }
         } catch (ValidationException $e) {
 
@@ -183,6 +197,7 @@ class GenericAPIController extends BaseController {
   public static function delete($modelType, int $modelId): JsonResponse {
     return static::tryCRUD(
       function () use ($modelType, $modelId) {
+
         /** @noinspection PhpUndefinedMethodInspection */
         $model = $modelType::find($modelId);
 
@@ -197,9 +212,6 @@ class GenericAPIController extends BaseController {
     );
   }
 
-
-  // ---------- PRIVATE HELPERS ---------- //
-
   /**
    * Provides error handling common to the various CRUD operations.
    *
@@ -211,9 +223,7 @@ class GenericAPIController extends BaseController {
 
       return $crudOp();
 
-    }
-    catch
-    catch (Exception $e) {
+    } catch (Exception $e) {
 
       static::logCriticalError($e);
       return new JsonResponse(
@@ -243,6 +253,13 @@ class GenericAPIController extends BaseController {
   ): JsonResponse {
     $responseData = ['errors' => $errors];
     return new JsonResponse($responseData, $code);
+  }
+
+  protected static function authorizationFailureResponse() {
+    return static::badRequestResponse(
+      ['client doesn\'t have access to resource'],
+      Response::HTTP_FORBIDDEN
+    );
   }
 
   protected static function unrecognizedFieldResponse(string $name
@@ -291,29 +308,33 @@ class GenericAPIController extends BaseController {
 
 
   /**
-   * Define resour
+   * Define a tree of hierarchical resource routes stemming from a single node, which
+   * may represent a root resource (no parent node), or a sub-resource (with one or
+   * more ancestor nodes).
    *
-   * @param array<ResourceNode> $lineage : list of RelationLineageNode, which correspond
+   * @param array<ResourceNodeSchema> $lineage : list of RelationLineageNode, which correspond
    *   to
    * @param $maxDepth
    * @throws \ReflectionException
    */
-  public static function recursivelyDeclareRelationRoutes(
+  protected static function recursivelyDeclareRelationRoutes(
     array $lineage,
     $maxDepth
   ) {
 
-    /** @var ResourceNode $currentNode */
+    /** @var ResourceNodeSchema $currentNode */
     $currentNode = end($lineage);
 
-    echo " Declaring for resource $currentNode->routeName: $currentNode->routeURI\n";
+    echo " Declaring for resource $currentNode->routeNamePrefix: $currentNode->routeURIPrefix\n";
     static::declareImmediateRoutesForNode($currentNode);
 
-    if($currentNode->depth === $maxDepth) {
+    // We will only expose sub-resources to a specified depth
+    if ($currentNode->depth === $maxDepth) {
       return;
     }
 
-    // Iterate through public methods belonging to the current node's Eloquent model
+    // Iterate through public methods belonging to the current node's Eloquent model,
+    // looking for relations that should be exposed as sub-resources.
     $class = new \ReflectionClass($currentNode->modelType);
     foreach ($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
 
@@ -322,33 +343,113 @@ class GenericAPIController extends BaseController {
         continue;
       }
 
-      // For each "has" relation, recursively declare routes
+      // If an Eloquent relation, recursively declare sub-resource routes
       $isHasMany = $returnType->getName() === HasMany::class;
       $isHasOne = $returnType->getName() === HasOne::class;
       if ($isHasOne || $isHasMany) {
-        $relationMethodName = $method->getName();
+        $accessorIdentifier = $method->getName();
         $blankEntity = new $currentNode->modelType();
-        $relationTargetType = get_class($blankEntity->$relationMethodName()->getRelated());
-        $lineage[] = new ResourceNode($relationTargetType, $currentNode, $isHasMany);
+        $relationTargetType =
+          get_class($blankEntity->$accessorIdentifier()->getRelated());
+        $lineage[] =
+          new ResourceNodeSchema(
+            $relationTargetType,
+            $currentNode,
+            $isHasMany,
+            null,
+            $accessorIdentifier
+          );
         static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
       }
     }
 
   }
 
-  private static function declareImmediateRoutesForNode(ResourceNode $node) {
 
-    // Retrieve all
-    echo "\t retrieve all: GET $node->routeURI \n";
-    Route::get(
-      $node->routeURI,
-      function (...$resourceIdStack) use ($node) {
-        $node->authorize(Operation::RETRIEVE_ALL, Auth::id(), $resourceIdStack);
-        return static::retrieveAll($node);
+  protected static function declareImmediateRoutesForNode(
+    ResourceNodeSchema $schema
+  ) {
+
+    // The various CRUD operations are implemented by applying the
+    // resource schema to a "stack" of one or more model id's,
+    // representing a chain of related models; for example an operation
+    // on 'users/i/posts/j/comments/k' is fulfilled by a schema for the
+    // comments sub-resource, acting on id stack [i, j, k]
+
+    // CREATE
+    Route::post(
+      $schema->routeURIPrefix,
+      function (...$uriIdStack) use ($schema) {
+
+        // Check if the user is authorized to perform the operation.
+        if (
+        !static::authorized(
+          $schema,
+          Operation::CREATE,
+          Auth::id(),
+          $uriIdStack
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        // Since there is no ID directly associated with creating a new resource,
+        // the top of the id stack is the parent, if one exists.
+        $parentId = $schema->parent ? end($uriIdStack) : null;
+
+        return static::updateOrCreate($schema, $parentId);
       }
-    )->name("$node->routeName.retrieve-all");
+    )->name("{$schema->routeNamePrefix}." . Operation::CREATE);
+
+    // RETRIEVE ONE
+    Route::get(
+      $schema->routeURIPrefix . '\\{id}',
+      function (...$uriIdStack) use ($schema) {
+
+        // Check if the user is authorized to perform the operation.
+        if (
+        !static::authorized(
+          $schema,
+          Operation::RETRIEVE,
+          Auth::id(),
+          $uriIdStack
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        $id = end($uriIdStack);
+        return static::retrieveOne($schema, $id);
+      }
+    )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE);
+
+    // RETRIEVE MANY
+    Route::get(
+      $schema->routeURIPrefix,
+      function (...$uriIdStack) use ($schema) {
+
+        // Check if the user is authorized to perform the operation.
+        if (
+        !static::authorized(
+          $schema,
+          Operation::RETRIEVE_ALL,
+          Auth::id(),
+          $uriIdStack
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        // Since there is no ID associated with a querying a HasMany relation,
+        // the top of the id stack is the parent, if one exists.
+        $parentId = $schema->parent ? end($uriIdStack) : null;
+
+        return static::retrieveAll($schema, $parentId);
+      }
+    )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE_ALL);
 
   }
+
 
 }
 

@@ -8,7 +8,7 @@ use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 use Illuminate\Validation\ValidationException;
 
-class FooModelValidatingModelTest extends BaseAutoCRUDTest {
+class ValidatingModelTest extends TestBase {
 
   /** @test */
   public function rule_violation_throws_exception_on_create() {

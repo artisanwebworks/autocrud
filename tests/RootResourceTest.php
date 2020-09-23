@@ -5,7 +5,7 @@ namespace ArtisanWebworks\AutoCRUD\Test;
 
 // Internal
 use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\ResourceNode;
+use ArtisanWebworks\AutoCRUD\ResourceNodeSchema;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
@@ -14,37 +14,39 @@ use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
-class FooModelGenericAPITest extends BaseAutoCRUDTest {
+class RootResourceTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();
 
-    // Declare routes
+    // Declare routes for the foomodel resource.
     GenericAPIController::declareRoutes(FooModel::class);
 
-    // Mock the the logged in user id return from Auth Facade
-    $loggedInUser = User::create(['username' => 'mr mock']);
-    Auth::shouldReceive('id')->andReturn($loggedInUser);
-
-    // Seed starting DB state for all tests
-    $firstFoo = FooModel::create(['name' => 'some foo']); // ID = 1
-    $bar1 = BarModel::create(['level' => 1, 'foo_model_id' => $firstFoo->id]);
-    $bar2 = BarModel::create(['level' => 2, 'foo_model_id' => $firstFoo->id]);
-
-    FooModel::create(['name' => 'some other foo']); // ID = 2
-
+    static::printRoutes();
   }
 
   /** @test */
-  public function retrieve_one_foo_resource() {
-    $uri = route('api.foomodel.retrieve', ['id' => 1]);
+  public function retrieve_one_resource() {
+    static::printRoutes();
+    $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
+    $uri = route('api.foomodels.retrieve', ['id' => $foo->id]);
     $response = $this->get($uri);
-    $response->assertJson(['data' => ['name' => 'some foo']]);
+    $response->assertJson(
+      [
+        'data' => [
+          'id'      => $foo->id,
+          'name'    => 'some foo',
+          'user_id' => $this->loggedInUserId
+        ]
+      ]
+    );
     $response->assertStatus(200/** OK */);
   }
 
   /** @test */
-  public function retrieve_all_foo_resources() {
+  public function retrieve_many_resources() {
+    Model::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
+    Model::create(['name' => 'some other foo', 'user_id' => $this->loggedInUserId]);
     $uri = route('api.foomodel.retrieve-all');
     $response = $this->get($uri);
     $response->assertJson(
@@ -60,10 +62,25 @@ class FooModelGenericAPITest extends BaseAutoCRUDTest {
 
   /** @test */
   public function create_a_new_foo_resource() {
-    $uri = route('api.foomodel.create');
+    $uri = route('api.foomodels.create');
     $response = $this->post($uri, ['name' => 'new foo']);
     $response->assertJson(['data' => ['name' => 'new foo']]);
     $response->assertStatus(201/** CREATED */);
+
+    // Fetch the newly created resource in a separate call
+    $fooId = $response->json(['data'])['id'];
+    $uri = route('api.foomodels.retrieve', ['id' => $fooId]);
+    $response = $this->get($uri);
+    $response->assertJson(
+      [
+        'data' => [
+          'id'      => $fooId,
+          'name'    => 'some foo',
+          'user_id' => $this->loggedInUserId
+        ]
+      ]
+    );
+    $response->assertStatus(200/** OK */);
   }
 
   /** @test */
