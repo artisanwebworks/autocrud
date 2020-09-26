@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Auth;
  *
  * @package ArtisanWebworks\AutoCRUD\Test
  */
-class AuthorizationTest extends TestBase {
+class EndpointAuthorizationTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();

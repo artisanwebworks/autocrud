@@ -89,9 +89,7 @@ class GenericAPIController extends BaseController {
     return static::tryCRUD(
       function () use ($schema, $id) {
 
-        /** @noinspection PhpUndefinedMethodInspection */
         $model = $schema->modelType::find($id);
-
         if (!$model) {
           return self::invalidIdResponse($schema->modelType, $id);
         }
@@ -137,42 +135,20 @@ class GenericAPIController extends BaseController {
    * If $existingModelId specified, updates model, otherwise creates new one.
    * Extraneous request parameters will result in error.
    *
-   * @param Request $req
    * @param ResourceNodeSchema $schema
-   * @param int|null $existingModelId - operation inferred to be update if defined
+   * @param ValidatingModel $modelPreview
    * @return JsonResponse - the updated/created json resource, or an error response
    */
-  protected static function updateOrCreate(
-    Request $req,
+  protected static function saveModelPreview(
     ResourceNodeSchema $schema,
-    int $existingModelId = null
+    ValidatingModel $modelPreview
   ): JsonResponse {
     return static::tryCRUD(
-      function () use ($req, $schema, $existingModelId) {
-
-        // Reject request if it includes a non-fillable field.
-        $blankInstance = new $schema->modelType ();
-        foreach ($req->keys() as $propertyName) {
-          if (!$blankInstance->isFillable($propertyName)) {
-            return static::badRequestResponse(
-              ["$propertyName is an unrecognized field"]
-            );
-          }
-        }
-
+      function () use ($schema, $modelPreview) {
         try {
-          $targetInstance = null;
-          $isUpdate = $existingModelId !== null;
-          if ($isUpdate) {
-            $targetInstance = $schema->modelType::find($existingModelId);
-            if (!$targetInstance) {
-              return static::invalidIdResponse($schema->modelType, $existingModelId);
-            }
-            $targetInstance->update($req->all());
-          }
-          else {
-            $targetInstance = $schema->modelType::create($req->all());
-          }
+
+          $modelPreview->save();
+
         } catch (ValidationException $e) {
 
           // Flatten the errors to one string per field instead
@@ -183,28 +159,25 @@ class GenericAPIController extends BaseController {
             }
           )->toArray();
 
-          return static::badRequestResponse($flattenedErrors, 422);
+          return static::badRequestResponse(
+            $flattenedErrors,
+            Response::HTTP_UNPROCESSABLE_ENTITY
+          );
         }
 
-        return static::jsonModelResponse(
-          $targetInstance,
-          $isUpdate ? Response::HTTP_OK : Response::HTTP_CREATED
-        );
+        return static::jsonModelResponse($modelPreview);
       }
     );
   }
 
-  public static function delete($modelType, int $modelId): JsonResponse {
+  public static function delete(ResourceNodeSchema $schema, int $modelId): JsonResponse {
     return static::tryCRUD(
-      function () use ($modelType, $modelId) {
+      function () use ($schema, $modelId) {
 
-        /** @noinspection PhpUndefinedMethodInspection */
-        $model = $modelType::find($modelId);
-
+        $model = $schema->modelType::find($modelId);
         if (!$model) {
-          return self::invalidIdResponse($modelType, $modelId);
+          return self::invalidIdResponse($schema->modelType, $modelId);
         }
-
         $model->delete();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
@@ -275,7 +248,7 @@ class GenericAPIController extends BaseController {
    */
   protected static function jsonModelResponse(
     $modelData,
-    int $httpCode
+    int $httpCode = Response::HTTP_OK
   ): JsonResponse {
 
     $jsonResourceType = static::$jsonResourceType ?? JsonResource::class;
@@ -298,12 +271,16 @@ class GenericAPIController extends BaseController {
     string $modelType,
     int $id
   ) {
-    $shortClassName = last(explode('\\', $modelType));
-    $resourceName = strtolower($shortClassName);
-    return static::badRequestResponse(
-      ["$id is not a valid $resourceName id"],
-      Response::HTTP_NOT_FOUND
-    );
+//    $shortClassName = last(explode('\\', $modelType));
+//    $resourceName = strtolower($shortClassName);
+//    return static::badRequestResponse(
+//      ["$id is not a valid $resourceName id"],
+//      Response::HTTP_NOT_FOUND
+//    );
+
+    // For security, we won't communicate wether
+    return self::authorizationFailureResponse();
+
   }
 
 
@@ -362,9 +339,7 @@ class GenericAPIController extends BaseController {
         static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
       }
     }
-
   }
-
 
   protected static function declareImmediateRoutesForNode(
     ResourceNodeSchema $schema
@@ -376,41 +351,44 @@ class GenericAPIController extends BaseController {
     // on 'users/i/posts/j/comments/k' is fulfilled by a schema for the
     // comments sub-resource, acting on id stack [i, j, k]
 
-    // CREATE
+    static::declareCreateRoute($schema);
+    static::declareRetrieveOneRoute($schema);
+    static::declareRetrieveManyRoute($schema);
+    static::declareUpdateRoute($schema);
+    static::declareDeleteRoute($schema);
+  }
+
+  protected static function declareCreateRoute(ResourceNodeSchema $schema) {
     Route::post(
       $schema->routeURIPrefix,
-      function (...$uriIdStack) use ($schema) {
+      function (Request $req, ...$uriIdStack) use ($schema) {
 
-        // Check if the user is authorized to perform the operation.
+        $previewModel = $schema->modelType::make($req->all());
+
         if (
-        !static::authorized(
+        !static::createOrUpdateIsAuthorized(
           $schema,
-          Operation::CREATE,
           Auth::id(),
-          $uriIdStack
+          $uriIdStack,
+          $previewModel
         )
         ) {
           return static::authorizationFailureResponse();
         }
 
-        // Since there is no ID directly associated with creating a new resource,
-        // the top of the id stack is the parent, if one exists.
-        $parentId = $schema->parent ? end($uriIdStack) : null;
-
-        return static::updateOrCreate($schema, $parentId);
+        return static::saveModelPreview($schema, $previewModel);
       }
     )->name("{$schema->routeNamePrefix}." . Operation::CREATE);
+  }
 
-    // RETRIEVE ONE
+  protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema) {
     Route::get(
-      $schema->routeURIPrefix . '\\{id}',
+      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
       function (...$uriIdStack) use ($schema) {
 
-        // Check if the user is authorized to perform the operation.
         if (
-        !static::authorized(
+        !static::retrieveOneIsAuthorized(
           $schema,
-          Operation::RETRIEVE,
           Auth::id(),
           $uriIdStack
         )
@@ -422,17 +400,16 @@ class GenericAPIController extends BaseController {
         return static::retrieveOne($schema, $id);
       }
     )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE);
+  }
 
-    // RETRIEVE MANY
+  protected static function declareRetrieveManyRoute(ResourceNodeSchema $schema) {
     Route::get(
       $schema->routeURIPrefix,
       function (...$uriIdStack) use ($schema) {
 
-        // Check if the user is authorized to perform the operation.
         if (
-        !static::authorized(
+        !static::retrieveManyIsAuthorized(
           $schema,
-          Operation::RETRIEVE_ALL,
           Auth::id(),
           $uriIdStack
         )
@@ -440,16 +417,56 @@ class GenericAPIController extends BaseController {
           return static::authorizationFailureResponse();
         }
 
-        // Since there is no ID associated with a querying a HasMany relation,
-        // the top of the id stack is the parent, if one exists.
-        $parentId = $schema->parent ? end($uriIdStack) : null;
-
-        return static::retrieveAll($schema, $parentId);
+        return static::retrieveAll($schema, end($uriIdStack));
       }
     )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE_ALL);
-
   }
 
+  protected static function declareUpdateRoute(ResourceNodeSchema $schema) {
+    Route::patch(
+      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
+      function (Request $req, ...$uriIdStack) use ($schema) {
+
+        $id = array_pop($uriIdStack);
+        $previewModel = $schema->modelType::find($id);
+        $previewModel->fill($req->all());
+
+        if (
+        !static::createOrUpdateIsAuthorized(
+          $schema,
+          Auth::id(),
+          $uriIdStack,
+          $previewModel
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        return static::saveModelPreview($schema, $previewModel);
+      }
+    )->name("{$schema->routeNamePrefix}." . Operation::UPDATE);
+  }
+
+  protected static function declareDeleteRoute(ResourceNodeSchema $schema) {
+    Route::delete(
+      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
+      function (...$uriIdStack) use ($schema) {
+
+        if (
+        !static::deleteIsAuthorized(
+          $schema,
+          Auth::id(),
+          $uriIdStack
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        $id = end($uriIdStack);
+        return static::delete($schema, $id);
+      }
+    )->name("{$schema->routeNamePrefix}." . Operation::DELETE);
+  }
 
 }
 

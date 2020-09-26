@@ -40,6 +40,12 @@ class ResourceNodeSchema {
   public string $name;
 
   /**
+   * @var string - the name of the id URI parameter, for example 'foos/{foo}',
+   * corresponds to $idName set to 'foo'.
+   */
+  public string $idName;
+
+  /**
    * @var string - the base of the Laravel route name to which the crud operation strings
    *   will be appended.
    */
@@ -57,10 +63,10 @@ class ResourceNodeSchema {
 
 
   /**
-   * @var string - if this is a sub resource, the identifier of the relation on the parent
+   * @var string|null - if this is a sub resource, the identifier of the relation on the parent
    *   Eloquent Model.
    */
-  public string $relationIdentifier;
+  public ?string $relationIdentifier;
 
   /**
    * @param string $modelType
@@ -88,6 +94,10 @@ class ResourceNodeSchema {
         strtolower($relationIdentifier) :
         static::deriveNameFromModelClass($modelType, $hasSiblings)
       );
+    $this->relationIdentifier = $relationIdentifier;
+
+    // The id name is the singular form of the model name.
+    $this->idName = static::deriveNameFromModelClass($modelType, false);
 
     list($this->routeNamePrefix, $this->routeURIPrefix) = $this->generateRouteParameters();
     $this->depth = $parent ? $parent->depth + 1 : 0;
@@ -102,17 +112,17 @@ class ResourceNodeSchema {
     $uri = $this->name;
     while ($parent) {
       $routeName = $parent->name . "." . $routeName;
-      $uri = $parent->name . '\\{id}\\' . $uri;
+      $uri = $parent->name . '/{' . $parent->idName . '}/' . $uri;
       $parent = $parent->parent;
     }
     $routeName = "api." . $routeName;
-    $uri = "api\\" . $uri;
+    $uri = "api/" . $uri;
     return [$routeName, $uri];
   }
 
-  private static function deriveNameFromModelClass($modelType, $hasSiblings) {
+  private static function deriveNameFromModelClass($modelType, $plural) {
     $modelName = last(explode('\\', $modelType));
-    if ($hasSiblings) {
+    if ($plural) {
       $modelName .= 's';
     }
     return strtolower($modelName);
