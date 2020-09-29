@@ -3,9 +3,8 @@
 
 namespace ArtisanWebworks\AutoCRUD;
 
-
-use Illuminate\Auth\Access\AuthorizationException;
 use function PHPUnit\Framework\isFalse;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class ResourceNodeSchema
@@ -66,22 +65,26 @@ class ResourceNodeSchema {
    * @var string|null - if this is a sub resource, the identifier of the relation on the parent
    *   Eloquent Model.
    */
-  public ?string $relationIdentifier;
+  public ?string $relationMethodName;
+
+  /**
+   * @var string|null - the field identifier on the target resource referencing the parent
+   */
+  public ?string $relationForeignKeyName;
 
   /**
    * @param string $modelType
    * @param ResourceNodeSchema|null $parent,
    * @param bool $hasSiblings
-   * @param string|null $name - overrides the default name derived from model type.
-   * @param string|null $relationIdentifier - the identifier invoked on the parent resource's model
-   *   to yield this sub-resource.
+   * @param string|null $relationMethodName
+   * @param string|null $relationForeignKeyName
    */
   public function __construct(
     string $modelType,
     ?ResourceNodeSchema $parent,
     bool $hasSiblings,
-    string $name = null,
-    string $relationIdentifier = null
+    string $relationMethodName = null,
+    string $relationForeignKeyName = null
   ) {
     $this->modelType = $modelType;
     $this->parent = $parent;
@@ -89,12 +92,12 @@ class ResourceNodeSchema {
 
     // Name is explicitly passed, derived from the Eloquent relation identifier,
     // or derived from the Model class name, attempted in that order.
-    $this->name = $name ??
-      ($relationIdentifier ?
-        strtolower($relationIdentifier) :
-        static::deriveNameFromModelClass($modelType, $hasSiblings)
-      );
-    $this->relationIdentifier = $relationIdentifier;
+    $this->name =$relationMethodName ?
+        strtolower($relationMethodName) :
+        static::deriveNameFromModelClass($modelType, $hasSiblings);
+
+    $this->relationMethodName = $relationMethodName;
+    $this->relationForeignKeyName = $relationForeignKeyName;
 
     // The id name is the singular form of the model name.
     $this->idName = static::deriveNameFromModelClass($modelType, false);
@@ -130,6 +133,45 @@ class ResourceNodeSchema {
 
   public function instantiateModel($id) {
     return $this->modelType::find($id);
+  }
+
+  /**
+   * Given a stack of resource ids [i, j, k, ...], corresponding to
+   * a REST API endpoint URI parameters, for example, /users/i/posts/j/comments/k...,
+   * verify the relations implied by the path actually exist (eg, there is User i,
+   * with Post j, having Comment k).
+   *
+   * @param array $uriIdStack - stack of ids, with one for this resource schema type
+   *   and one for each ancestor node
+   * @returns bool - true if the relations expressed by the URI path are valid
+   */
+  protected function verifyLineage(array $uriIdStack) {
+    for ($node = $this; $node; $node = $node->parent) {
+
+      // If no further relations to examine, verification succeeded
+      if (!$node->parent) {
+        return true;
+      }
+
+      // There is one or more parent-child relationship left to examine, so there
+      // should be at least two ids left in the stack (the child, then parent).
+      if (count($uriIdStack) < 2) {
+        return false;
+      }
+
+      // Query DB to confirm the parent-child relationship exists
+      $childId = array_pop($uriIdStack);
+      $parentId = end($uriIdStack);
+      $result = DB::select("\
+        select * from {$node->table} \ 
+        where {$node->idColumnName} = ? \
+        and where {$node->parent->relationForeignKeyName} = ?",
+        [$childId, $parentId]
+      );
+      if (!$result) {
+        return false;
+      }
+    }
   }
 
 }

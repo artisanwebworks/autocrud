@@ -123,7 +123,7 @@ class GenericAPIController extends BaseController {
           $all =
             $schema->parent->instantiateModel(
               $parentId
-            )[$schema->relationIdentifier];
+            )[$schema->relationMethodName];
         }
 
         return static::jsonModelResponse($all, Response::HTTP_OK);
@@ -324,17 +324,18 @@ class GenericAPIController extends BaseController {
       $isHasMany = $returnType->getName() === HasMany::class;
       $isHasOne = $returnType->getName() === HasOne::class;
       if ($isHasOne || $isHasMany) {
-        $accessorIdentifier = $method->getName();
+        $relationMethodName = $method->getName();
         $blankEntity = new $currentNode->modelType();
-        $relationTargetType =
-          get_class($blankEntity->$accessorIdentifier()->getRelated());
+        $relation = $blankEntity->$relationMethodName();
+        $relationTargetType = get_class($relation->getRelated());
+        $relationForeignKey = $relation->getForeignKeyName();
         $lineage[] =
           new ResourceNodeSchema(
             $relationTargetType,
-            $currentNode,
+            $currentNode /** parent */,
             $isHasMany,
-            null,
-            $accessorIdentifier
+            $relationMethodName,
+            $relationForeignKey
           );
         static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
       }
@@ -363,7 +364,16 @@ class GenericAPIController extends BaseController {
       $schema->routeURIPrefix,
       function (Request $req, ...$uriIdStack) use ($schema) {
 
-        $previewModel = $schema->modelType::make($req->all());
+        $args = $req->all();
+
+        // If a sub-resource route, automatically include in arguments
+        // the foreign key field referencing the parent.
+        if ($schema->parent) {
+          $schema->verifyLineage($uriIdStack);
+          $args[$schema->relationForeignKeyName] = end($uriIdStack);
+        }
+
+        $previewModel = $schema->modelType::make($args);
 
         if (
         !static::createOrUpdateIsAuthorized(

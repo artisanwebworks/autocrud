@@ -35,7 +35,9 @@ class EndpointAuthorizationTest extends TestBase {
   }
   
   /** @test */
-  public function retrieve_all_foo_accepted_because_parent_is_user_resource() {
+  public function retrieve_all_foo_accepted_because_ancestor_resource_is_logged_in_user() {
+
+    // Setup user --(has many)--> foo --(has many)--> bar
     $firstFoo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUser->id]);
     $bar1 = BarModel::create(['level' => 1, 'foo_model_id' => $firstFoo->id]);
     $bar2 = BarModel::create(['level' => 2, 'foo_model_id' => $firstFoo->id]);
