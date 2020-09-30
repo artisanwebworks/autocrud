@@ -130,7 +130,7 @@ trait AuthorizesCRUDOperations {
       $rulePrefix = "\tRULE $ruleIndex: ";
       $ruleIndex++;
 
-      // An access rule optionally specific to a model type
+      // An access rule can optionally be specific to a given model class.
       if (isset($rule['model']) && $rule['model'] !== $instanceClass) {
         echo "$rulePrefix indeterminate due to class condition mismatch\n";
         continue;
@@ -138,14 +138,14 @@ trait AuthorizesCRUDOperations {
 
       // The first qualifying property settles the authorization attempt;
       // denying if its value does not match.
-      $propertyName = $rule['property'];
+      $propertyName = $rule['user-id-property'];
       if (isset($instance[$propertyName])) {
         $resolution = $instance[$propertyName] === $userId ? "accept" : "reject";
-        echo "$rulePrefix property condition resolves rule to $resolution\n";
+        echo "$rulePrefix user-id-property condition resolves rule to $resolution\n";
         return $resolution;
       }
 
-      echo "$rulePrefix rule indeterminate since property not observed on instance\n";
+      echo "$rulePrefix rule indeterminate since user-id property not observed on instance\n";
     }
 
     // No rule can make a determination so reject.

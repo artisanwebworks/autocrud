@@ -8,7 +8,7 @@ use ArtisanWebworks\AutoCRUD\GenericAPIController;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
 
-class SubResourceEndpointTest extends TestBase {
+class SubResourceCRUDTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();

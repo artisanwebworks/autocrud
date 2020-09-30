@@ -10,7 +10,7 @@ use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
 // Vendor
 use Illuminate\Support\Facades\Auth;
 
-class RootEndpointTest extends TestBase {
+class RootEndpointCRUDTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();
@@ -31,7 +31,7 @@ class RootEndpointTest extends TestBase {
 
     // Confirm new resource can be fetched
     $fooId = $response->json(['data'])['id'];
-    $uri = route('api.foomodels.retrieve', ['id' => $fooId]);
+    $uri = route('api.foomodels.retrieve', ['foomodel' => $fooId]);
     $response = $this->get($uri);
     $response->assertJson(['data' => $args]);
     $response->assertStatus(200 /** OK */);
@@ -40,7 +40,7 @@ class RootEndpointTest extends TestBase {
   /** @test */
   public function retrieve_one_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.retrieve', ['id' => $foo->id]);
+    $uri = route('api.foomodels.retrieve', ['foomodel' => $foo->id]);
     $response = $this->get($uri);
     $response->assertJson(
       [
@@ -73,7 +73,7 @@ class RootEndpointTest extends TestBase {
   /** @test */
   public function update_a_foo_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.update', ['id' => $foo->id]);
+    $uri = route('api.foomodels.update', ['foomodel' => $foo->id]);
     $args = ['name' => 'updated foo'];
     $response = $this->patch($uri, $args);
     $response->assertJson(['data' => $args]);
@@ -83,12 +83,12 @@ class RootEndpointTest extends TestBase {
   /** @test */
   public function delete_a_foo_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.delete', ['id' => $foo->id]);
+    $uri = route('api.foomodels.delete', ['foomodel' => $foo->id]);
     $response = $this->delete($uri);
     $response->assertStatus(204/** NO CONTENT */);
 
     // Try to retrieve to confirm actually deleted
-    $uri = route('api.foomodels.retrieve', ['id' => $foo->id]);
+    $uri = route('api.foomodels.retrieve', ['foomodel' => $foo->id]);
     $response = $this->get($uri);
     $response->assertStatus(403/** FORBIDDEN (we don't communicate existence)*/);
   }

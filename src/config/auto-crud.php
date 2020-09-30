@@ -11,18 +11,22 @@ return [
   | Determines how deeply to inspect Eloquent Model relations
   | to expose sub-resource routes.
   |
-  | For example if we have Foo, which has many Bar, which has many Baz,
-  | and recurse to a depth of 1, we will expose
+  | For example if we have users, which have many posts, which have many comments,
+  | which have many responses, a depth of 1 will expose...
   |
-  | api/foo/{id}/bars
+  |   api/users/i/posts
   |
-  | But NOT
+  | But NOT...
   |
-  | api/foo/{id}/bar/{id}/bazs
+  |   api/users/i/posts/j/comments
+  |
+  | A depth 3 on the other hand, will expose the full relation lineage...
+  |
+  |   api/users/i/posts/j/comments/k/responses
   |
   */
 
-  'recursion-depth' => 1,
+  'recursion-depth' => 4,
 
   /*
   |--------------------------------------------------------------------------
@@ -45,12 +49,12 @@ return [
 
     // If the sub-resource stems from a User-based resource, we expect
     // the user id passed in the route to be equal to the logged in user
-    ['property' => 'id', 'model' => 'App\\Model\\User'],
-    ['property' => 'id', 'model' => 'App\\User'],
+    ['user-id-property' => 'id', 'model' => 'App\\Model\\User'],
+    ['user-id-property' => 'id', 'model' => 'App\\User'],
 
     // Further, if we encounter a 'user_id' property on any resource,
-    // we will use it to determine access.
-    ['property' => 'user_id']
+    // we will use it to accept or reject access.
+    ['user-id-property' => 'user_id']
 
   ]
 

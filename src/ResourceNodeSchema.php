@@ -3,50 +3,50 @@
 
 namespace ArtisanWebworks\AutoCRUD;
 
-use function PHPUnit\Framework\isFalse;
+use Exception;
+use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Class ResourceNodeSchema
  *
- * Describes an abstract API resource and corresponding Eloquent model type, optionally
- * as a sub-resource belonging to a chain of 1 or more parent resources.
+ * Describes an API resource type, derived from a corresponding Eloquent model type,
+ * and optionally described as a sub-resource based on an Eloquent relation.
  *
  * @package ArtisanWebworks\AutoCRUD
  */
 class ResourceNodeSchema {
 
   /**
-   * @var string - the resource we are describing corresponds to this Eloquent class.
+   * @var string - the Eloquent class representing this resource.
    */
-  public string $modelType;
+  public string $modelClass;
 
   /**
-   * @var ResourceNodeSchema|null - the node describing the parent resource (if any).
+   * @var string - the database table representing this resource.
    */
-  public ?ResourceNodeSchema $parent;
+  public string $table;
 
   /**
-   * @var bool - determines if we express URI and route names in the singular or plural.
+   * @var string - the primary key for DB records representing this resource.
    */
-  public bool $hasSiblings;
+  public string $primaryKeyName;
 
   /**
-   * @var string - the resource's name as included URI and route names.
-   *
-   * !! must be a valid URI directory name !!
+   * @var string - the resource's name as included in URI and Laravel route names.
    */
   public string $name;
 
   /**
-   * @var string - the name of the id URI parameter, for example 'foos/{foo}',
-   * corresponds to $idName set to 'foo'.
+   * @var string - the resource's URI id-parameter name, for example 'foos/{foo}',
+   * corresponds to $idName of 'foo'.
    */
-  public string $idName;
+  public string $uriIdName;
 
   /**
-   * @var string - the base of the Laravel route name to which the crud operation strings
-   *   will be appended.
+   * @var string - prefix for Laravel route names pertaining to this resource; for
+   * example, for a route named 'api.foomodels.create', the route name prefix is
+   * 'api.foomodels'.
    */
   public string $routeNamePrefix;
 
@@ -56,55 +56,92 @@ class ResourceNodeSchema {
   public string $routeURIPrefix;
 
   /**
-   * @var int - the number of ancestor resources
+   * @var int - the number of ancestor resources.
    */
   public int $depth;
 
 
-  /**
-   * @var string|null - if this is a sub resource, the identifier of the relation on the parent
-   *   Eloquent Model.
-   */
-  public ?string $relationMethodName;
+  // PERTAINING TO SUB-RESOURCES
 
   /**
-   * @var string|null - the field identifier on the target resource referencing the parent
+   * @var ResourceNodeSchema|null - the node describing the parent resource (if any).
    */
-  public ?string $relationForeignKeyName;
+  public ?ResourceNodeSchema $parent = null;
 
   /**
-   * @param string $modelType
-   * @param ResourceNodeSchema|null $parent,
-   * @param bool $hasSiblings
+   * @var string|null - if this is a sub resource, the method on the parent's Model returning
+   *   the HasOneOrMany relation.
+   */
+  public ?string $relationMethodName = null;
+
+  /**
+   * @var string|null - if this is a sub resource, the property this resource's model that
+   *   references parent model.
+   */
+  public ?string $parentForeignKeyName = null;
+
+
+  // ---------- CONSTRUCTORS ---------- //
+
+  /**
+   * @param string|null $modelClass - Eloquent Model class this resource represents; explicitly passed
+   *   for root resources, otherwise derived from other parameter
+   * @param ResourceNodeSchema|null $parent ,
+   * @param HasOneOrMany|null $relation
    * @param string|null $relationMethodName
-   * @param string|null $relationForeignKeyName
+   * @throws Exception
    */
-  public function __construct(
-    string $modelType,
+  protected function __construct(
+    ?string $modelClass,
     ?ResourceNodeSchema $parent,
-    bool $hasSiblings,
-    string $relationMethodName = null,
-    string $relationForeignKeyName = null
+    ?HasOneOrMany $relation,
+    ?string $relationMethodName
   ) {
-    $this->modelType = $modelType;
-    $this->parent = $parent;
-    $this->hasSiblings = $hasSiblings;
+    if ($relation) {
 
-    // Name is explicitly passed, derived from the Eloquent relation identifier,
-    // or derived from the Model class name, attempted in that order.
-    $this->name =$relationMethodName ?
-        strtolower($relationMethodName) :
-        static::deriveNameFromModelClass($modelType, $hasSiblings);
+      // Creating a sub-resource
+      if (! ($parent && $relationMethodName)) {
+        throw new Exception("missing required arguments for sub-resource");
+      }
+      $this->modelClass = get_class($relation->getRelated());
+      $this->parent = $parent;
+      $this->parentForeignKeyName = $relation->getForeignKeyName();
+      $this->relationMethodName = $relationMethodName;
+      $this->name = strtolower($relationMethodName);
 
-    $this->relationMethodName = $relationMethodName;
-    $this->relationForeignKeyName = $relationForeignKeyName;
+    } else {
 
-    // The id name is the singular form of the model name.
-    $this->idName = static::deriveNameFromModelClass($modelType, false);
+      // Creating a root-resource
+      if (! ($modelClass)) {
+        throw new Exception("missing required arguments for root-resource");
+      }
+      $this->modelClass = $modelClass;
+      $this->name = static::deriveNameFromModelClass($modelClass, true);
+    }
 
+    // Common to both root-resource and sub-resource
+    $blankInstance = (new $this->modelClass());
+    $this->table = $blankInstance->getTable();
+    $this->primaryKeyName = $blankInstance->getKeyName();
+    $this->uriIdName = static::deriveNameFromModelClass($this->modelClass, false);
     list($this->routeNamePrefix, $this->routeURIPrefix) = $this->generateRouteParameters();
     $this->depth = $parent ? $parent->depth + 1 : 0;
   }
+
+  public static function createRootResourceNode(string $modelClass) {
+    return new self($modelClass, null, null, null);
+  }
+
+  public static function createSubResourceNode(
+    ResourceNodeSchema $parent,
+    HasOneOrMany $relation,
+    string $relationMethodName
+  ) {
+    return new self(null, $parent, $relation, $relationMethodName);
+  }
+
+
+  // ---------- METHODS ---------- //
 
   /**
    * Traverse ancestor nodes to form route name and URI.
@@ -115,7 +152,7 @@ class ResourceNodeSchema {
     $uri = $this->name;
     while ($parent) {
       $routeName = $parent->name . "." . $routeName;
-      $uri = $parent->name . '/{' . $parent->idName . '}/' . $uri;
+      $uri = $parent->name . '/{' . $parent->uriIdName . '}/' . $uri;
       $parent = $parent->parent;
     }
     $routeName = "api." . $routeName;
@@ -123,16 +160,8 @@ class ResourceNodeSchema {
     return [$routeName, $uri];
   }
 
-  private static function deriveNameFromModelClass($modelType, $plural) {
-    $modelName = last(explode('\\', $modelType));
-    if ($plural) {
-      $modelName .= 's';
-    }
-    return strtolower($modelName);
-  }
-
   public function instantiateModel($id) {
-    return $this->modelType::find($id);
+    return $this->modelClass::find($id);
   }
 
   /**
@@ -143,9 +172,11 @@ class ResourceNodeSchema {
    *
    * @param array $uriIdStack - stack of ids, with one for this resource schema type
    *   and one for each ancestor node
+   *
    * @returns bool - true if the relations expressed by the URI path are valid
    */
-  protected function verifyLineage(array $uriIdStack) {
+  public function verifyLineage(array $uriIdStack) {
+    echo "VERIFYING LINEAGE\n";
     for ($node = $this; $node; $node = $node->parent) {
 
       // If no further relations to examine, verification succeeded
@@ -162,16 +193,41 @@ class ResourceNodeSchema {
       // Query DB to confirm the parent-child relationship exists
       $childId = array_pop($uriIdStack);
       $parentId = end($uriIdStack);
-      $result = DB::select("\
-        select * from {$node->table} \ 
-        where {$node->idColumnName} = ? \
-        and where {$node->parent->relationForeignKeyName} = ?",
-        [$childId, $parentId]
-      );
-      if (!$result) {
+      $query =
+        "select 1 from {$node->table} ".
+        "where {$node->primaryKeyName} = ? ".
+        "and {$node->parentForeignKeyName} = ? ".
+        "limit 1";
+      echo "VERIFICATION QUERY: $query \n";
+      $result = DB::select($query, [$childId, $parentId]);
+      if (count($result) === 0) {
+        echo "\tFAILED\n";
         return false;
       }
     }
+
+    echo "ALL PASSED\n";
+    return true;
   }
 
+
+  // ---------- HELPERS ---------- //
+
+  protected static function deriveNameFromModelClass($modelType, $plural = false) {
+    $modelName = last(explode('\\', $modelType));
+    $name = strtolower($modelName);
+    return $plural ? static::pluralize($name) : $name;
+  }
+
+  public static function pluralize($singular) {
+    $last_letter = strtolower($singular[strlen($singular)-1]);
+    switch($last_letter) {
+      case 'y':
+        return substr($singular,0,-1).'ies';
+      case 's':
+        return $singular.'es';
+      default:
+        return $singular.'s';
+    }
+  }
 }

@@ -4,7 +4,6 @@
 namespace ArtisanWebworks\AutoCRUD;
 
 // Vendor
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use ReflectionException;
 use Symfony\Component\HttpFoundation\Response;
 use Closure;
 use Exception;
@@ -40,11 +40,6 @@ class GenericAPIController extends BaseController {
   use AuthorizesCRUDOperations;
 
   /**
-   *
-   */
-  protected const DEFAULT_MAX_DEPTH = 1;
-
-  /**
    * Specialized subclasses can bind to a specific model by defining this property.
    *
    * @var string Full classname of Eloquent ValidatingModel.
@@ -64,22 +59,23 @@ class GenericAPIController extends BaseController {
    *
    * @param string|null $forModelType omitted when called against a subclass.
    *
-   * @param array $options TODO: implement these
-   *
-   *    'route-prefix': changes prefix used in route URI and name from default 'api'
+   * @param array $options TODO: not implemented
    *
    *    'only': array of CRUD operations to expose, expressed as any combination of the following:
-   *            'retrieve', 'retrieve-all', 'create', 'update', 'delete'
+   *      'retrieve', 'retrieve-all', 'create', 'update', 'delete'
    *
-   *    'max-depth': the number of sub-resources to be chained together in a route URI
-   * @throws \ReflectionException
+   *    'recursion-depth': the number of sub-resources to be chained together in a route URI;
+   *       overrides the general setting in 'auto-crud.recursion-depth' (see config comments).
+   *
+   * @throws ReflectionException
    */
   public static function declareRoutes(
     string $forModelType = null,
     array $options = []
   ) {
-    $rootNode = new ResourceNodeSchema($forModelType, null, true);
-    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], 1);
+    $depth = $options['recursion-depth'] ?? config('auto-crud.recursion-depth', 10);
+    $rootNode = ResourceNodeSchema::createRootResourceNode($forModelType);
+    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], $depth);
   }
 
   protected static function retrieveOne(
@@ -89,9 +85,9 @@ class GenericAPIController extends BaseController {
     return static::tryCRUD(
       function () use ($schema, $id) {
 
-        $model = $schema->modelType::find($id);
+        $model = $schema->modelClass::find($id);
         if (!$model) {
-          return self::invalidIdResponse($schema->modelType, $id);
+          return self::invalidIdResponse($schema->modelClass, $id);
         }
 
         return static::jsonModelResponse(
@@ -114,7 +110,7 @@ class GenericAPIController extends BaseController {
 
           // If this is a root level resource, we access all the corresponding models
           // via the Model Facade class.
-          $all = $schema->modelType::all();
+          $all = $schema->modelClass::all();
         }
         else {
 
@@ -174,9 +170,9 @@ class GenericAPIController extends BaseController {
     return static::tryCRUD(
       function () use ($schema, $modelId) {
 
-        $model = $schema->modelType::find($modelId);
+        $model = $schema->modelClass::find($modelId);
         if (!$model) {
-          return self::invalidIdResponse($schema->modelType, $modelId);
+          return self::invalidIdResponse($schema->modelClass, $modelId);
         }
         $model->delete();
 
@@ -271,28 +267,17 @@ class GenericAPIController extends BaseController {
     string $modelType,
     int $id
   ) {
-//    $shortClassName = last(explode('\\', $modelType));
-//    $resourceName = strtolower($shortClassName);
-//    return static::badRequestResponse(
-//      ["$id is not a valid $resourceName id"],
-//      Response::HTTP_NOT_FOUND
-//    );
-
-    // For security, we won't communicate wether
+    // For security, we won't distinguish between non-existing and forbidden resources.
     return self::authorizationFailureResponse();
-
   }
 
-
   /**
-   * Define a tree of hierarchical resource routes stemming from a single node, which
-   * may represent a root resource (no parent node), or a sub-resource (with one or
-   * more ancestor nodes).
+   * Infer a set of resource routes by inspecting an Eloquent model and its relations.
    *
-   * @param array<ResourceNodeSchema> $lineage : list of RelationLineageNode, which correspond
-   *   to
+   * @param array<ResourceNodeSchema> $lineage - list of ResourceNodeSchema corresponding to a series of
+   *   related resource as expressed along a REST resource URI path.
    * @param $maxDepth
-   * @throws \ReflectionException
+   * @throws ReflectionException
    */
   protected static function recursivelyDeclareRelationRoutes(
     array $lineage,
@@ -312,7 +297,7 @@ class GenericAPIController extends BaseController {
 
     // Iterate through public methods belonging to the current node's Eloquent model,
     // looking for relations that should be exposed as sub-resources.
-    $class = new \ReflectionClass($currentNode->modelType);
+    $class = new \ReflectionClass($currentNode->modelClass);
     foreach ($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
 
       $returnType = $method->getReturnType();
@@ -325,18 +310,16 @@ class GenericAPIController extends BaseController {
       $isHasOne = $returnType->getName() === HasOne::class;
       if ($isHasOne || $isHasMany) {
         $relationMethodName = $method->getName();
-        $blankEntity = new $currentNode->modelType();
+        $blankEntity = new $currentNode->modelClass();
         $relation = $blankEntity->$relationMethodName();
-        $relationTargetType = get_class($relation->getRelated());
-        $relationForeignKey = $relation->getForeignKeyName();
-        $lineage[] =
-          new ResourceNodeSchema(
-            $relationTargetType,
-            $currentNode /** parent */,
-            $isHasMany,
-            $relationMethodName,
-            $relationForeignKey
-          );
+
+        // Push new resource schema onto lineage chain
+        $lineage[] = ResourceNodeSchema::createSubResourceNode(
+          $currentNode, /** parent of new node */
+          $relation,
+          $relationMethodName
+        );
+
         static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
       }
     }
@@ -364,37 +347,46 @@ class GenericAPIController extends BaseController {
       $schema->routeURIPrefix,
       function (Request $req, ...$uriIdStack) use ($schema) {
 
-        $args = $req->all();
-
-        // If a sub-resource route, automatically include in arguments
-        // the foreign key field referencing the parent.
-        if ($schema->parent) {
-          $schema->verifyLineage($uriIdStack);
-          $args[$schema->relationForeignKeyName] = end($uriIdStack);
+        // Top of the URI id stack (if any), represents parent resource, so
+        // we verify lineage relations starting with parent.
+        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
         }
 
-        $previewModel = $schema->modelType::make($args);
+        // If a sub-resource route, automatically include in creation arguments
+        // the foreign key field referencing the parent.
+        $args = $req->all();
+        if ($schema->parent) {
+          $args[$schema->parentForeignKeyName] = end($uriIdStack);
+        }
+
+        // Instantiate (but don't yet save) the new model.
+        $modelPreview = $schema->modelClass::make($args);
 
         if (
         !static::createOrUpdateIsAuthorized(
           $schema,
           Auth::id(),
           $uriIdStack,
-          $previewModel
+          $modelPreview
         )
         ) {
           return static::authorizationFailureResponse();
         }
 
-        return static::saveModelPreview($schema, $previewModel);
+        return static::saveModelPreview($schema, $modelPreview);
       }
     )->name("{$schema->routeNamePrefix}." . Operation::CREATE);
   }
 
   protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema) {
     Route::get(
-      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
+      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
       function (...$uriIdStack) use ($schema) {
+
+        if (!$schema->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
+        }
 
         if (
         !static::retrieveOneIsAuthorized(
@@ -417,6 +409,12 @@ class GenericAPIController extends BaseController {
       $schema->routeURIPrefix,
       function (...$uriIdStack) use ($schema) {
 
+        // Top of the URI id stack (if any), represents parent resource, so
+        // we verify lineage relations starting with parent.
+        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
+        }
+
         if (
         !static::retrieveManyIsAuthorized(
           $schema,
@@ -434,11 +432,18 @@ class GenericAPIController extends BaseController {
 
   protected static function declareUpdateRoute(ResourceNodeSchema $schema) {
     Route::patch(
-      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
+      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
       function (Request $req, ...$uriIdStack) use ($schema) {
 
+        if (!$schema->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
+        }
+
         $id = array_pop($uriIdStack);
-        $previewModel = $schema->modelType::find($id);
+        $previewModel = $schema->modelClass::find($id);
+        if (!$previewModel) {
+          return static::authorizationFailureResponse();
+        }
         $previewModel->fill($req->all());
 
         if (
@@ -459,8 +464,12 @@ class GenericAPIController extends BaseController {
 
   protected static function declareDeleteRoute(ResourceNodeSchema $schema) {
     Route::delete(
-      $schema->routeURIPrefix . '/{' . $schema->idName . '}',
+      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
       function (...$uriIdStack) use ($schema) {
+
+        if (!$schema->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
+        }
 
         if (
         !static::deleteIsAuthorized(
