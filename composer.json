@@ -19,12 +19,12 @@
     },
     "autoload": {
         "psr-4": {
-            "ArtisanWebworks\\AutoCRUD\\": "src/"
+            "ArtisanWebworks\\AutoCrud\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "ArtisanWebworks\\AutoCRUD\\Test\\": "tests/"
+            "ArtisanWebworks\\AutoCrud\\Test\\": "tests/"
         }
     },
     "extra": {
