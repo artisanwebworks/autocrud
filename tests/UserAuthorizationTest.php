@@ -1,15 +1,15 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
 // Internal
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\ResourceNodeSchema;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\BazModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
+use ArtisanWebworks\AutoCrud\ResourceNodeSchema;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\BazModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\User;
 
 // Vendor
 use Illuminate\Support\Collection;
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Auth;
  * must be linked, directly or indirectly, to the Laravel Auth user. See 'auto-crud.php'
  * and ResourceNode::authorize().
  *
- * @package ArtisanWebworks\AutoCRUD\Test
+ * @package ArtisanWebworks\AutoCrud\Test
  */
 class UserAuthorizationTest extends TestBase {
 

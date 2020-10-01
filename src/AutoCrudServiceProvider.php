@@ -1,12 +1,12 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD;
+namespace ArtisanWebworks\AutoCrud;
 
 
 use Illuminate\Support\ServiceProvider;
 
-class AutoCRUDServiceProvider extends ServiceProvider {
+class AutoCrudServiceProvider extends ServiceProvider {
 
   public function register() {
     $this->mergeConfigFrom(

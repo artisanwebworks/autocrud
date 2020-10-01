@@ -1,7 +1,7 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD;
+namespace ArtisanWebworks\AutoCrud;
 
 use Exception;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
  * Describes an API resource type, derived from a corresponding Eloquent model type,
  * and optionally described as a sub-resource based on an Eloquent relation.
  *
- * @package ArtisanWebworks\AutoCRUD
+ * @package ArtisanWebworks\AutoCrud
  */
 class ResourceNodeSchema {
 

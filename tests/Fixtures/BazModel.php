@@ -1,9 +1,9 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test\Fixtures;
+namespace ArtisanWebworks\AutoCrud\Test\Fixtures;
 
-use ArtisanWebworks\AutoCRUD\ValidatingModel;
+use ArtisanWebworks\AutoCrud\ValidatingModel;
 
 class BazModel extends ValidatingModel {
   protected $fillable = ['can-recognize', 'bar_model_id'];

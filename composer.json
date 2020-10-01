@@ -30,7 +30,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "ArtisanWebworks\\AutoCrud\\AutoCrudServiceProvider"
+              "AutoCrudServiceProvider"
             ]
         }
     }

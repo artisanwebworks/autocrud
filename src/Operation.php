@@ -1,6 +1,6 @@
 <?php
 
-namespace ArtisanWebworks\AutoCRUD;
+namespace ArtisanWebworks\AutoCrud;
 
 abstract class Operation {
   const CREATE = "create";

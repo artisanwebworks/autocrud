@@ -1,9 +1,9 @@
 <?php
 
-namespace ArtisanWebworks\AutoCRUD\Test\Fixtures;
+namespace ArtisanWebworks\AutoCrud\Test\Fixtures;
 
-use ArtisanWebworks\AutoCRUD\ValidatingModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\ValidatingModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 

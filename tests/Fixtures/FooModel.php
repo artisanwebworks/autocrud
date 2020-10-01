@@ -1,8 +1,8 @@
 <?php
 
-namespace ArtisanWebworks\AutoCRUD\Test\Fixtures;
+namespace ArtisanWebworks\AutoCrud\Test\Fixtures;
 
-use ArtisanWebworks\AutoCRUD\ValidatingModel;
+use ArtisanWebworks\AutoCrud\ValidatingModel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FooModel extends ValidatingModel {
@@ -19,7 +19,7 @@ class FooModel extends ValidatingModel {
   ];
 
   public function barModels(): HasMany {
-    return $this->hasMany('ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel');
+    return $this->hasMany('ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel');
   }
 
 }

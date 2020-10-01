@@ -1,14 +1,14 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
 // Internal
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel;
 
-class SubResourceCRUDTest extends TestBase {
+class SubResourceCrudTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();

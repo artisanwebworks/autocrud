@@ -1,7 +1,7 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD;
+namespace ArtisanWebworks\AutoCrud;
 
 // Vendor
 use Illuminate\Support\Collection;
@@ -34,10 +34,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * Subclasses may bind to a specific model to specialize some controller behavior, while
  * still leveraging default logic.
  *
- * @package ArtisanWebworks\AutoCRUD
+ * @package ArtisanWebworks\AutoCrud
  */
 class GenericAPIController extends BaseController {
-  use AuthorizesCRUDOperations;
+  use AuthorizesCrudOperations;
 
   /**
    * Specialized subclasses can bind to a specific model by defining this property.

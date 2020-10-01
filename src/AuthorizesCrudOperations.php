@@ -1,12 +1,12 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD;
+namespace ArtisanWebworks\AutoCrud;
 
 
 use Illuminate\Database\Eloquent\Model;
 
-trait AuthorizesCRUDOperations {
+trait AuthorizesCrudOperations {
 
   protected static function createOrUpdateIsAuthorized(
     ResourceNodeSchema $node,

@@ -1,9 +1,9 @@
 <?php
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
-use ArtisanWebworks\AutoCRUD\AutoCRUDServiceProvider;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
+use ArtisanWebworks\AutoCrud\AutoCrudServiceProvider;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\User;
 use Illuminate\Support\Facades\Auth;
 use Orchestra\Testbench\TestCase;
 use Illuminate\Contracts\Foundation\Application;
@@ -43,7 +43,7 @@ abstract class TestBase extends TestCase {
   }
 
   protected function getPackageProviders($app) {
-    return [AutoCRUDServiceProvider::class];
+    return [AutoCrudServiceProvider::class];
   }
 
   protected static function mockLoggedInUser(): User {

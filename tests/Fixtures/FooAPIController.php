@@ -1,9 +1,9 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test\Fixtures;
+namespace ArtisanWebworks\AutoCrud\Test\Fixtures;
 
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
 
 class FooAPIController extends GenericAPIController {
 

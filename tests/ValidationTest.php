@@ -1,11 +1,11 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
 
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 
 class ValidationTest extends TestBase {
 

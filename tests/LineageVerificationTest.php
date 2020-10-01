@@ -1,14 +1,14 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
 
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\User;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\BarModel;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\BazModel;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\User;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\BazModel;
 
 class LineageVerificationTest extends TestBase {
 

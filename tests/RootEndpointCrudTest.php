@@ -1,16 +1,16 @@
 <?php
 
 
-namespace ArtisanWebworks\AutoCRUD\Test;
+namespace ArtisanWebworks\AutoCrud\Test;
 
 // Internal
-use ArtisanWebworks\AutoCRUD\GenericAPIController;
-use ArtisanWebworks\AutoCRUD\Test\Fixtures\FooModel;
+use ArtisanWebworks\AutoCrud\GenericAPIController;
+use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 
 // Vendor
 use Illuminate\Support\Facades\Auth;
 
-class RootEndpointCRUDTest extends TestBase {
+class RootEndpointCrudTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();
