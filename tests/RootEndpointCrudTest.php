@@ -18,7 +18,7 @@ class RootEndpointCrudTest extends TestBase {
     // Declare routes for the foomodel resource.
     GenericAPIController::declareRoutes(FooModel::class);
 
-    static::printRoutes();
+//    static::printRoutes();
   }
 
   /** @test */

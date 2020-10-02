@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class FooModel extends ValidatingModel {
 
   protected $fillable = ['name', 'user_id'];
-  protected $casts = ['user_id' => 'int'];
+//  protected $casts = ['user_id' => 'int'];
   protected array $rules = ['name' => 'string|required|min:3'];
   protected array $messages = [
     'min' => ':attribute must be at least :min characters',

@@ -345,6 +345,7 @@ class GenericAPIController extends BaseController {
     Route::post(
       $schema->routeURIPrefix,
       function (Request $req, ...$uriIdStack) use ($schema) {
+        static::castUriIdsToInt($uriIdStack);
 
         // Top of the URI id stack (if any), represents parent resource, so
         // we verify lineage relations starting with parent.
@@ -484,6 +485,14 @@ class GenericAPIController extends BaseController {
         return static::delete($schema, $id);
       }
     )->name("{$schema->routeNamePrefix}." . Operation::DELETE);
+  }
+
+  protected static function castUriIdsToInt(array &$ids) {
+    array_walk($ids, function (&$id) {
+      if (is_numeric($id)) {
+        $id = (int)$id;
+      }
+    });
   }
 
 }

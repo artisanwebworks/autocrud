@@ -16,7 +16,7 @@ class SubResourceCrudTest extends TestBase {
     // Declare routes
     GenericAPIController::declareRoutes(FooModel::class);
 
-    static::printRoutes();
+//    static::printRoutes();
   }
 
   /** @test */
