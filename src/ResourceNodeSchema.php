@@ -155,10 +155,10 @@ class ResourceNodeSchema {
       $uri = $parent->name . '/{' . $parent->uriIdName . '}/' . $uri;
       $parent = $parent->parent;
     }
-    $apiUriPrefix = config('auto-crud.api-uri-prefix', "");
-    $apiRouteNamePrefix = config('auto-crud.api-route-name-prefix', "api");
-    $routeName = "api." . $routeName;
-    $uri = "api/" . $uri;
+    $apiUriPrefix = config('auto-crud.api-uri-prefix');
+    $apiRouteNamePrefix = config('auto-crud.api-route-name-prefix');
+    $uri = ($apiUriPrefix ? "$apiUriPrefix/" : "") . $uri;
+    $routeName = ($apiUriPrefix ? "$apiRouteNamePrefix." : "") . $routeName;
     return [$routeName, $uri];
   }
 
