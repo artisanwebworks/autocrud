@@ -123,7 +123,6 @@ trait AuthorizesCrudOperations {
    */
   private static function attemptSettleAuthorizationWithInstance($userId, Model $instance) {
 
-    echo "attempting to authorize $userId against instance $instance->id\n";
     $instanceClass = get_class($instance);
     $ruleIndex = 0;
     foreach (config('auto-crud.access-rules') as $rule) {
@@ -132,7 +131,6 @@ trait AuthorizesCrudOperations {
 
       // An access rule can optionally be specific to a given model class.
       if (isset($rule['model']) && $rule['model'] !== $instanceClass) {
-        echo "$rulePrefix indeterminate due to class condition mismatch\n";
         continue;
       }
 
@@ -141,15 +139,12 @@ trait AuthorizesCrudOperations {
       $propertyName = $rule['user-id-property'];
       if (isset($instance[$propertyName])) {
         $resolution = $instance[$propertyName] === $userId ? "accept" : "reject";
-        echo "$rulePrefix user-id-property condition resolves rule to $resolution\n";
         return $resolution;
       }
 
-      echo "$rulePrefix rule indeterminate since user-id property not observed on instance\n";
     }
 
     // No rule can make a determination so reject.
-    echo "\tall rules failed to make determination so returning indeterminate";
     return "indeterminate";
   }
 }

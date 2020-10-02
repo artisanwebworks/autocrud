@@ -178,7 +178,6 @@ class ResourceNodeSchema {
    * @returns bool - true if the relations expressed by the URI path are valid
    */
   public function verifyLineage(array $uriIdStack) {
-    echo "VERIFYING LINEAGE\n";
     for ($node = $this; $node; $node = $node->parent) {
 
       // If no further relations to examine, verification succeeded
@@ -200,15 +199,12 @@ class ResourceNodeSchema {
         "where {$node->primaryKeyName} = ? ".
         "and {$node->parentForeignKeyName} = ? ".
         "limit 1";
-      echo "VERIFICATION QUERY: $query \n";
       $result = DB::select($query, [$childId, $parentId]);
       if (count($result) === 0) {
-        echo "\tFAILED\n";
         return false;
       }
     }
 
-    echo "ALL PASSED\n";
     return true;
   }
 

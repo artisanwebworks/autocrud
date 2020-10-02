@@ -287,7 +287,6 @@ class GenericAPIController extends BaseController {
     /** @var ResourceNodeSchema $currentNode */
     $currentNode = end($lineage);
 
-    echo " Declaring for resource $currentNode->routeNamePrefix: $currentNode->routeURIPrefix\n";
     static::declareImmediateRoutesForNode($currentNode);
 
     // We will only expose sub-resources to a specified depth
