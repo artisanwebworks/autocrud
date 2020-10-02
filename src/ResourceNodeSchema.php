@@ -158,7 +158,7 @@ class ResourceNodeSchema {
     $apiUriPrefix = config('auto-crud.api-uri-prefix');
     $apiRouteNamePrefix = config('auto-crud.api-route-name-prefix');
     $uri = ($apiUriPrefix ? "$apiUriPrefix/" : "") . $uri;
-    $routeName = ($apiUriPrefix ? "$apiRouteNamePrefix." : "") . $routeName;
+    $routeName = ($apiRouteNamePrefix ? "$apiRouteNamePrefix." : "") . $routeName;
     return [$routeName, $uri];
   }
 
