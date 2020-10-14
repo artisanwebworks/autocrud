@@ -123,14 +123,14 @@ trait AuthorizesCrudOperations {
    */
   private static function attemptSettleAuthorizationWithInstance($userId, Model $instance) {
 
-    $instanceClass = get_class($instance);
+    $instanceShortClassName = last(explode('\\', get_class($instance)));
     $ruleIndex = 0;
     foreach (config('auto-crud.access-rules') as $rule) {
       $rulePrefix = "\tRULE $ruleIndex: ";
       $ruleIndex++;
 
       // An access rule can optionally be specific to a given model class.
-      if (isset($rule['model']) && $rule['model'] !== $instanceClass) {
+      if (isset($rule['model']) && $rule['model'] !== $instanceShortClassName) {
         continue;
       }
 
@@ -138,7 +138,7 @@ trait AuthorizesCrudOperations {
       // denying if its value does not match.
       $propertyName = $rule['user-id-property'];
       if (isset($instance[$propertyName])) {
-        $resolution = $instance[$propertyName] === $userId ? "accept" : "reject";
+        $resolution = $instance[$propertyName] == $userId ? "accept" : "reject";
         return $resolution;
       }
 

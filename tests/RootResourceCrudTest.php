@@ -10,7 +10,7 @@ use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 // Vendor
 use Illuminate\Support\Facades\Auth;
 
-class RootEndpointCrudTest extends TestBase {
+class RootResourceCrudTest extends TestBase {
 
   protected function setUp(): void {
     parent::setUp();

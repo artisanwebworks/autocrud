@@ -13,7 +13,11 @@ class User extends ValidatingModel {
     'username',
   ];
 
-  public function foomodels(): HasMany {
+  // ---------- RELATIONS ---------- //
+
+  protected $with = ['fooModels'];
+
+  public function fooModels(): HasMany {
     return $this->hasMany(FooModel::class);
   }
 

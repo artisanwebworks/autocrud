@@ -7,7 +7,6 @@ use Illuminate\Validation\ValidationException;
 
 abstract class ValidatingModel extends Model {
 
-  protected $fillable = [];
   protected array $rules = [];
   protected array $messages = [];
 

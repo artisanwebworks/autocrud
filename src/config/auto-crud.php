@@ -59,8 +59,7 @@ return [
 
     // If the sub-resource stems from a User-based resource, we expect
     // the user id passed in the route to be equal to the logged in user
-    ['user-id-property' => 'id', 'model' => 'App\\Model\\User'],
-    ['user-id-property' => 'id', 'model' => 'App\\User'],
+    ['user-id-property' => 'id', 'model' => 'User'],
 
     // Further, if we encounter a 'user_id' property on any resource,
     // we will use it to accept or reject access.

@@ -247,6 +247,7 @@ class GenericAPIController extends BaseController {
     int $httpCode = Response::HTTP_OK
   ): JsonResponse {
 
+    JsonResource::$wrap = null;
     $jsonResourceType = static::$jsonResourceType ?? JsonResource::class;
 
     /** @var $jsonResource JsonResource */
