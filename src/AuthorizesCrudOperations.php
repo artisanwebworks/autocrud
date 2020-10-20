@@ -8,15 +8,22 @@ use Illuminate\Database\Eloquent\Model;
 
 trait AuthorizesCrudOperations {
 
+  /**
+   * @param ResourceNodeSchema $node
+   * @param $userId
+   * @param $ancestorIdStack
+   * @param $preview -- a single model or an array of models (for bulk operations)
+   * @return bool
+   */
   protected static function createOrUpdateIsAuthorized(
     ResourceNodeSchema $node,
     $userId,
     $ancestorIdStack,
-    $modelPreview
+    $preview
   ) {
 
     // First attempt to settle authorization with the preview model
-    $outcome = static::attemptSettleAuthorizationWithInstance($userId, $modelPreview);
+    $outcome = static::attemptSettleAuthorizationWithInstance($userId, $preview);
     if ($outcome !== "indeterminate") {
       return $outcome === "accept";
     }
@@ -118,18 +125,23 @@ trait AuthorizesCrudOperations {
    * resource chain, by applying the 'auto-crud.access-rules' config.
    *
    * @param $userId - the logged in user id
-   * @param Model $instance - an Eloquent model, or the create parameters for one
+   * @param Model|array $preview - an Eloquent model, or array of models
    * @return string - one of "accept", "reject", "indeterminate"
    */
-  private static function attemptSettleAuthorizationWithInstance($userId, Model $instance) {
+  private static function attemptSettleAuthorizationWithInstance($userId, $preview) {
 
-    $instanceShortClassName = last(explode('\\', get_class($instance)));
+    // Normalize as array
+    $preview = is_array($preview) ? $preview : [$preview];
+
+    // We assume preview instances are all of the same class
+    $instanceShortClassName = last(explode('\\', get_class(head($preview))));
+
+    // Iterate through each access rule specified in the config
     $ruleIndex = 0;
     foreach (config('auto-crud.access-rules') as $rule) {
-      $rulePrefix = "\tRULE $ruleIndex: ";
       $ruleIndex++;
 
-      // An access rule can optionally be specific to a given model class.
+      // An access rule can optionally be specific to a given model class
       if (isset($rule['model']) && $rule['model'] !== $instanceShortClassName) {
         continue;
       }
@@ -137,11 +149,31 @@ trait AuthorizesCrudOperations {
       // The first qualifying property settles the authorization attempt;
       // denying if its value does not match.
       $propertyName = $rule['user-id-property'];
-      if (isset($instance[$propertyName])) {
-        $resolution = $instance[$propertyName] == $userId ? "accept" : "reject";
-        return $resolution;
+
+      // Attempt to settle authorization by looking for $propertyName on
+      // all the preview instances.
+      $allAccept = true;
+      foreach ($preview as $instance) {
+
+        if (isset($instance[$propertyName])) {
+          if($instance[$propertyName] != $userId) {
+
+            // A property mismatch on any one instance, rejects for all
+            return "reject";
+          }
+        } else {
+
+          // All entities in the preview set must establish acceptance, or none can.
+          // We continue iterating since, there is still the possibility of rejection.
+          $allAccept = false;
+        }
       }
 
+      if ($allAccept) {
+        return "accept";
+      }
+
+      // try the next rule...
     }
 
     // No rule can make a determination so reject.

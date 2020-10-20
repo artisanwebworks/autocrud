@@ -24,7 +24,7 @@ class UriIdCastToIntTest extends TestBase {
     $uri = route('api.users.foomodels.create', ['user' => "$this->loggedInUserId"]);
     $args = ['name' => 'new foo'];
     $response = $this->post($uri, $args);
-    $response->assertJson(['data' => $args]);
+    $response->assertJson($args);
     $response->assertStatus(200 /** OK */);
   }
 }

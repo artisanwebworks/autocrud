@@ -132,18 +132,24 @@ class GenericAPIController extends BaseController {
    * Extraneous request parameters will result in error.
    *
    * @param ResourceNodeSchema $schema
-   * @param ValidatingModel $modelPreview
+   * @param ValidatingModel|array $preview
    * @return JsonResponse - the updated/created json resource, or an error response
    */
   protected static function saveModelPreview(
     ResourceNodeSchema $schema,
-    ValidatingModel $modelPreview
+    $preview
   ): JsonResponse {
     return static::tryCRUD(
-      function () use ($schema, $modelPreview) {
+      function () use ($schema, $preview) {
         try {
 
-          $modelPreview->save();
+          if (is_array($preview)) {
+            foreach ($preview as $instance) {
+              $instance->save();
+            }
+          } else {
+            $preview->save();
+          }
 
         } catch (ValidationException $e) {
 
@@ -161,7 +167,7 @@ class GenericAPIController extends BaseController {
           );
         }
 
-        return static::jsonModelResponse($modelPreview);
+        return static::jsonModelResponse($preview);
       }
     );
   }
@@ -251,7 +257,7 @@ class GenericAPIController extends BaseController {
     $jsonResourceType = static::$jsonResourceType ?? JsonResource::class;
 
     /** @var $jsonResource JsonResource */
-    $jsonResource = ($modelData instanceof Collection) ?
+    $jsonResource = ($modelData instanceof Collection || is_array($modelData)) ?
       $jsonResourceType::collection($modelData) :
       new $jsonResourceType($modelData);
 
@@ -336,6 +342,7 @@ class GenericAPIController extends BaseController {
     // comments sub-resource, acting on id stack [i, j, k]
 
     static::declareCreateRoute($schema);
+    static::declareBulkCreateRoute($schema);
     static::declareRetrieveOneRoute($schema);
     static::declareRetrieveManyRoute($schema);
     static::declareUpdateRoute($schema);
@@ -378,6 +385,46 @@ class GenericAPIController extends BaseController {
         return static::saveModelPreview($schema, $modelPreview);
       }
     )->name("{$schema->routeNamePrefix}." . Operation::CREATE);
+  }
+
+  protected static function declareBulkCreateRoute(ResourceNodeSchema $schema) {
+    Route::post(
+      $schema->routeURIPrefix . '-bulk',
+      function (Request $req, ...$uriIdStack) use ($schema) {
+        static::castUriIdsToInt($uriIdStack);
+
+        // Top of the URI id stack (if any), represents parent resource, so
+        // we verify lineage relations starting with parent.
+        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
+          return static::authorizationFailureResponse();
+        }
+
+        // If a sub-resource route, automatically include in creation arguments
+        // the foreign key field referencing the parent.
+        $argsSet = $req->all();
+        if ($schema->parent) {
+          $args[$schema->parentForeignKeyName] = end($uriIdStack);
+        }
+
+        // Instantiate (but don't yet save) the new model.
+        $modelPreviews = array_map(function ($args) use ($schema) {
+          return $schema->modelClass::make($args);
+        }, $argsSet);
+
+        if (
+        !static::createOrUpdateIsAuthorized(
+          $schema,
+          Auth::id(),
+          $uriIdStack,
+          $modelPreviews
+        )
+        ) {
+          return static::authorizationFailureResponse();
+        }
+
+        return static::saveModelPreview($schema, $modelPreviews);
+      }
+    )->name("{$schema->routeNamePrefix}.bulk-" . Operation::CREATE);
   }
 
   protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema) {

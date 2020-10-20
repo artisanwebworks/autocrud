@@ -18,7 +18,7 @@ class RootResourceCrudTest extends TestBase {
     // Declare routes for the foomodel resource.
     GenericAPIController::declareRoutes(FooModel::class);
 
-//    static::printRoutes();
+    static::printRoutes();
   }
 
   /** @test */
@@ -26,14 +26,14 @@ class RootResourceCrudTest extends TestBase {
     $uri = route('api.foomodels.create');
     $args = ['name' => 'new foo', 'user_id' => $this->loggedInUserId];
     $response = $this->post($uri, $args);
-    $response->assertJson(['data' => $args]);
+    $response->assertJson($args);
     $response->assertStatus(200 /** OK */);
 
     // Confirm new resource can be fetched
-    $fooId = $response->json(['data'])['id'];
+    $fooId = $response->json(['id']);
     $uri = route('api.foomodels.retrieve', ['foomodel' => $fooId]);
     $response = $this->get($uri);
-    $response->assertJson(['data' => $args]);
+    $response->assertJson($args);
     $response->assertStatus(200 /** OK */);
   }
 
@@ -44,11 +44,9 @@ class RootResourceCrudTest extends TestBase {
     $response = $this->get($uri);
     $response->assertJson(
       [
-        'data' => [
-          'id'      => $foo->id,
-          'name'    => 'some foo',
-          'user_id' => $this->loggedInUserId
-        ]
+        'id'      => $foo->id,
+        'name'    => 'some foo',
+        'user_id' => $this->loggedInUserId
       ]
     );
     $response->assertStatus(200/** OK */);
@@ -76,7 +74,7 @@ class RootResourceCrudTest extends TestBase {
     $uri = route('api.foomodels.update', ['foomodel' => $foo->id]);
     $args = ['name' => 'updated foo'];
     $response = $this->patch($uri, $args);
-    $response->assertJson(['data' => $args]);
+    $response->assertJson($args);
     $response->assertStatus(200/** OK */);
   }
 

@@ -26,7 +26,7 @@ class SubResourceCrudTest extends TestBase {
     $args = ['level'=> 1];
     $response = $this->post($uri, $args);
     // confirm foreign key to parent resource is inferred from URL parameters
-    $response->assertJson(['data' => array_merge($args, ['foo_model_id' => $foo->id])]);
+    $response->assertJson(array_merge($args, ['foo_model_id' => $foo->id]));
     $response->assertStatus(200);
   }
 
@@ -37,7 +37,7 @@ class SubResourceCrudTest extends TestBase {
     $bar = $foo->barModels()->save(BarModel::make($args));
     $uri = route("api.foomodels.barmodels.retrieve", ['foomodel' => $foo->id, 'barmodel' => $bar->id]);
     $response = $this->get($uri);
-    $response->assertJson(['data' => $args]);
+    $response->assertJson($args);
     $response->assertStatus(200);
   }
 
@@ -48,10 +48,10 @@ class SubResourceCrudTest extends TestBase {
     $foo->barModels()->save(BarModel::make(['level' => 2]));
     $uri = route("api.foomodels.barmodels.retrieve-all", ['foomodel' => $foo->id]);
     $response = $this->get($uri);
-    $response->assertJson(['data' => [
+    $response->assertJson([
       ['level' => 1],
       ['level' => 2],
-    ]]);
+    ]);
     $response->assertStatus(200);
   }
 
