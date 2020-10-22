@@ -18,8 +18,28 @@ class FooModel extends ValidatingModel {
     //      'in'      => 'The :attribute must be one of the following types: :values',
   ];
 
+
+  // ---------- RELATIONS ---------- //
+
+  protected $with = ['barModels'];
+
   public function barModels(): HasMany {
     return $this->hasMany('ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel');
   }
 
-}
+
+  // ---------- EVENTS ---------- //
+
+  protected static function booted() {
+
+    // Automatically create a bar relation on create
+    // (so we can confirm it is automatically expanded in
+    // the API create result)
+    static::created(
+      function ($foo) {
+        $foo->barModels()->save(new BarModel(['level' => 0]));
+      }
+    );
+  }
+
+  }

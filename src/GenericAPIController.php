@@ -143,12 +143,16 @@ class GenericAPIController extends BaseController {
       function () use ($schema, $preview) {
         try {
 
+          // After saving the Model we must refresh() in order
+          // to populate any 'with' relations.
           if (is_array($preview)) {
-            foreach ($preview as $instance) {
+            foreach ($preview as $i => $instance) {
               $instance->save();
+              $preview[$i] = $instance->fresh();
             }
           } else {
             $preview->save();
+            $preview = $preview->fresh();
           }
 
         } catch (ValidationException $e) {

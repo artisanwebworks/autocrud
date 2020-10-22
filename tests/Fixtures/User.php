@@ -13,6 +13,7 @@ class User extends ValidatingModel {
     'username',
   ];
 
+
   // ---------- RELATIONS ---------- //
 
   protected $with = ['fooModels'];
