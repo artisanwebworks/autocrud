@@ -402,8 +402,12 @@ class GenericAPIController extends BaseController {
         // If a sub-resource route, automatically include in creation arguments
         // the foreign key field referencing the parent.
         $argsSet = $req->all();
+        Log::info("inserting parent id (fk name)", [$schema->parentForeignKeyName]);
         if ($schema->parent) {
-          $args[$schema->parentForeignKeyName] = end($uriIdStack);
+          foreach ($argsSet as $args) {
+            $args[$schema->parentForeignKeyName] = end($uriIdStack);
+          }
+          Log::info("added fk to args set", $argsSet);
         }
 
         // Instantiate (but don't yet save) the new model.
