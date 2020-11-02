@@ -16,11 +16,20 @@ class AutoCrudServiceProvider extends ServiceProvider {
   }
 
   public function boot() {
+
     $this->publishes(
       [
         __DIR__ . '/config/auto-crud.php' => config_path('auto-crud.php')
       ]
     );
+
+    if ($this->app->runningInConsole()) {
+      $this->commands(
+        [
+          InspectRelationsCommand::class,
+        ]
+      );
+    }
   }
 
 }

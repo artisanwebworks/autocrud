@@ -41,7 +41,7 @@ class UserAuthorizationTest extends TestBase {
     $bar = $foo->barModels()->save(BarModel::make(['level' => 1]));
     $baz = $bar->bazModels()->save(BazModel::make(['can-recognize' => false]));
 
-    $uri = route("api.users.foomodels.barmodels.bazmodels.retrieve", [
+    $uri = route("api.user.foomodels.barmodels.bazmodels.retrieve", [
       'user' => $this->loggedInUserId,
       'foomodel' => $foo->id, // belongs to different user!
       'barmodel' => $bar->id,

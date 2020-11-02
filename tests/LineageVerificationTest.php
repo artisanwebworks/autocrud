@@ -29,7 +29,7 @@ class LineageVerificationTest extends TestBase {
     $baz = $bar->bazModels()->save(BazModel::make(['can-recognize' => false]));
 
     // users/{user}/foomodels/{foomodel}/barmodels/{barmodels}/bazmodels/{bazmodel}
-    $uri = route("api.users.foomodels.barmodels.bazmodels.retrieve", [
+    $uri = route("api.user.foomodels.barmodels.bazmodels.retrieve", [
       'user' => $this->loggedInUserId,
       'foomodel' => $unrelatedFoo->id,
       'barmodel' => $bar->id, // not actually related to foomodel
@@ -46,7 +46,7 @@ class LineageVerificationTest extends TestBase {
     $baz = $bar->bazModels()->save(BazModel::make(['can-recognize' => false]));
 
     // users/{user}/foomodels/{foomodel}/barmodels/{barmodels}/bazmodels/{bazmodel}
-    $uri = route("api.users.foomodels.barmodels.bazmodels.retrieve", [
+    $uri = route("api.user.foomodels.barmodels.bazmodels.retrieve", [
       'user' => $this->loggedInUserId,
       'foomodel' => 13, // doesn't exist
       'barmodel' => $bar->id,

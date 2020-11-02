@@ -31,7 +31,7 @@ class ExpandedJsonResponseTest extends TestBase {
     );
 
     $uri = route(
-      "api.users.retrieve",
+      "api.user.retrieve",
       [
         'user'     => $this->loggedInUserId,
       ]
@@ -44,7 +44,7 @@ class ExpandedJsonResponseTest extends TestBase {
   /** @test */
   public function foo_auto_generated_bar_relation_expanded_in_create_response() {
     $uri = route(
-      "api.users.foomodels.create",
+      "api.user.foomodels.create",
       [
         'user'     => $this->loggedInUserId,
       ]
@@ -61,7 +61,7 @@ class ExpandedJsonResponseTest extends TestBase {
   /** @test */
   public function foo_bulk_create_response_expands_auto_generated_relations() {
 
-    $uri = route('api.users.foomodels.bulk-create', [
+    $uri = route('api.user.foomodels.bulk-create', [
       'user' => $this->loggedInUserId
      ]);
     $argsSet = [

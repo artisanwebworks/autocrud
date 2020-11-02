@@ -21,7 +21,7 @@ class UriIdCastToIntTest extends TestBase {
   /** @test */
   public function user_id_as_string_casted_to_int() {
 
-    $uri = route('api.users.foomodels.create', ['user' => "$this->loggedInUserId"]);
+    $uri = route('api.user.foomodels.create', ['user' => "$this->loggedInUserId"]);
     $args = ['name' => 'new foo'];
     $response = $this->post($uri, $args);
     $response->assertJson($args);

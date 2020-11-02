@@ -23,7 +23,7 @@ class RootResourceCrudTest extends TestBase {
 
   /** @test */
   public function create_a_new_foo_resource() {
-    $uri = route('api.foomodels.create');
+    $uri = route('api.foomodel.create');
     $args = ['name' => 'new foo', 'user_id' => $this->loggedInUserId];
     $response = $this->post($uri, $args);
     $response->assertJson($args);
@@ -31,7 +31,7 @@ class RootResourceCrudTest extends TestBase {
 
     // Confirm new resource can be fetched
     $fooId = $response->json(['id']);
-    $uri = route('api.foomodels.retrieve', ['foomodel' => $fooId]);
+    $uri = route('api.foomodel.retrieve', ['foomodel' => $fooId]);
     $response = $this->get($uri);
     $response->assertJson($args);
     $response->assertStatus(200 /** OK */);
@@ -40,7 +40,7 @@ class RootResourceCrudTest extends TestBase {
   /** @test */
   public function retrieve_one_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.retrieve', ['foomodel' => $foo->id]);
+    $uri = route('api.foomodel.retrieve', ['foomodel' => $foo->id]);
     $response = $this->get($uri);
     $response->assertJson(
       [
@@ -58,7 +58,7 @@ class RootResourceCrudTest extends TestBase {
     // of associating the call to the logged in user.
     // TODO: consider authorization bypass whitelist for endpoints returning
     // public data
-    $uri = route('api.foomodels.retrieve-all');
+    $uri = route('api.foomodel.retrieve-all');
     $response = $this->get($uri);
     $response->assertJson(
       [
@@ -71,7 +71,7 @@ class RootResourceCrudTest extends TestBase {
   /** @test */
   public function update_a_foo_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.update', ['foomodel' => $foo->id]);
+    $uri = route('api.foomodel.update', ['foomodel' => $foo->id]);
     $args = ['name' => 'updated foo'];
     $response = $this->patch($uri, $args);
     $response->assertJson($args);
@@ -81,12 +81,12 @@ class RootResourceCrudTest extends TestBase {
   /** @test */
   public function delete_a_foo_resource() {
     $foo = FooModel::create(['name' => 'some foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.delete', ['foomodel' => $foo->id]);
+    $uri = route('api.foomodel.delete', ['foomodel' => $foo->id]);
     $response = $this->delete($uri);
     $response->assertStatus(204/** NO CONTENT */);
 
     // Try to retrieve to confirm actually deleted
-    $uri = route('api.foomodels.retrieve', ['foomodel' => $foo->id]);
+    $uri = route('api.foomodel.retrieve', ['foomodel' => $foo->id]);
     $response = $this->get($uri);
     $response->assertStatus(403/** FORBIDDEN (we don't communicate existence)*/);
   }

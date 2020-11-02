@@ -31,6 +31,8 @@ abstract class TestBase extends TestCase {
         'prefix'   => '',
       ]
     );
+    $app['config']->set('auto-crud.models-directory', '../../../../../tests/Fixtures');
+    $app['config']->set('auto-crud.relations-output', '../../../../tests/output/relations.js');
   }
 
   /**

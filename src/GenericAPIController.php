@@ -20,6 +20,9 @@ use Exception;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+// Internal
+include_once "relation-reflection.php";
+
 /**
  * Class GenericAPIController
  *
@@ -73,7 +76,8 @@ class GenericAPIController extends BaseController {
     string $forModelType = null,
     array $options = []
   ) {
-    $depth = $options['recursion-depth'] ?? config('auto-crud.recursion-depth', 10);
+    $depth =
+      $options['recursion-depth'] ?? config('auto-crud.recursion-depth', 10);
     $rootNode = ResourceNodeSchema::createRootResourceNode($forModelType);
     GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], $depth);
   }
@@ -150,7 +154,8 @@ class GenericAPIController extends BaseController {
               $instance->save();
               $preview[$i] = $instance->fresh();
             }
-          } else {
+          }
+          else {
             $preview->save();
             $preview = $preview->fresh();
           }
@@ -176,7 +181,10 @@ class GenericAPIController extends BaseController {
     );
   }
 
-  public static function delete(ResourceNodeSchema $schema, int $modelId): JsonResponse {
+  public static function delete(
+    ResourceNodeSchema $schema,
+    int $modelId
+  ): JsonResponse {
     return static::tryCRUD(
       function () use ($schema, $modelId) {
 
@@ -307,31 +315,16 @@ class GenericAPIController extends BaseController {
 
     // Iterate through public methods belonging to the current node's Eloquent model,
     // looking for relations that should be exposed as sub-resources.
-    $class = new \ReflectionClass($currentNode->modelClass);
-    foreach ($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+    $relations = inspectRelations($currentNode->modelClass);
+    foreach ($relations as $relationData) {
 
-      $returnType = $method->getReturnType();
-      if (!$returnType) {
-        continue;
-      }
+      // Push new resource schema onto lineage chain
+      $lineage[] = ResourceNodeSchema::createSubResourceNode(
+        $currentNode,
+        $relationData
+      );
 
-      // If an Eloquent relation, recursively declare sub-resource routes
-      $isHasMany = $returnType->getName() === HasMany::class;
-      $isHasOne = $returnType->getName() === HasOne::class;
-      if ($isHasOne || $isHasMany) {
-        $relationMethodName = $method->getName();
-        $blankEntity = new $currentNode->modelClass();
-        $relation = $blankEntity->$relationMethodName();
-
-        // Push new resource schema onto lineage chain
-        $lineage[] = ResourceNodeSchema::createSubResourceNode(
-          $currentNode, /** parent of new node */
-          $relation,
-          $relationMethodName
-        );
-
-        static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
-      }
+      static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
     }
   }
 
@@ -413,9 +406,12 @@ class GenericAPIController extends BaseController {
         }
 
         // Instantiate (but don't yet save) the new model.
-        $modelPreviews = array_map(function ($args) use ($schema) {
-          return $schema->modelClass::make($args);
-        }, $argsSet);
+        $modelPreviews = array_map(
+          function ($args) use ($schema) {
+            return $schema->modelClass::make($args);
+          },
+          $argsSet
+        );
 
         if (
         !static::createOrUpdateIsAuthorized(
@@ -433,7 +429,8 @@ class GenericAPIController extends BaseController {
     )->name("{$schema->routeNamePrefix}.bulk-" . Operation::CREATE);
   }
 
-  protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema) {
+  protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema
+  ) {
     Route::get(
       $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
       function (...$uriIdStack) use ($schema) {
@@ -458,7 +455,8 @@ class GenericAPIController extends BaseController {
     )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE);
   }
 
-  protected static function declareRetrieveManyRoute(ResourceNodeSchema $schema) {
+  protected static function declareRetrieveManyRoute(ResourceNodeSchema $schema
+  ) {
     Route::get(
       $schema->routeURIPrefix,
       function (...$uriIdStack) use ($schema) {
@@ -542,11 +540,14 @@ class GenericAPIController extends BaseController {
   }
 
   protected static function castUriIdsToInt(array &$ids) {
-    array_walk($ids, function (&$id) {
-      if (is_numeric($id)) {
-        $id = (int)$id;
+    array_walk(
+      $ids,
+      function (&$id) {
+        if (is_numeric($id)) {
+          $id = (int)$id;
+        }
       }
-    });
+    );
   }
 
 }

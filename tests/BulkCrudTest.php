@@ -21,7 +21,7 @@ class BulkCrudTest extends TestBase {
   /** @test */
   public function bulk_create_root_resource_foo_models() {
 
-    $uri = route('api.foomodels.bulk-create');
+    $uri = route('api.foomodel.bulk-create');
     $args = [
       ['name' => 'foo 1', 'user_id' => $this->loggedInUserId],
       ['name' => 'foo 2', 'user_id' => $this->loggedInUserId],
@@ -37,7 +37,7 @@ class BulkCrudTest extends TestBase {
   public function bulk_create_sub_resource_bar_models() {
 
     $foo = FooModel::create(['name' => 'root foo', 'user_id' => $this->loggedInUserId]);
-    $uri = route('api.foomodels.barmodels.bulk-create', ['foomodel' => $foo->id]);
+    $uri = route('api.foomodel.barmodels.bulk-create', ['foomodel' => $foo->id]);
     $args = [
       ['level' => 1], // foo_model fk should be inferred from url
       ['level' => 2],
@@ -51,7 +51,7 @@ class BulkCrudTest extends TestBase {
   /** @test */
   public function bulk_create_foo_models_fails_if_any_reject() {
 
-    $uri = route('api.foomodels.bulk-create');
+    $uri = route('api.foomodel.bulk-create');
     $args = [
       ['name' => 'foo 1', 'user_id' => $this->loggedInUserId],
       ['name' => 'foo 2', 'user_id' => $this->loggedInUserId],

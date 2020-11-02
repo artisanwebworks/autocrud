@@ -45,7 +45,7 @@ class ResourceNodeSchema {
 
   /**
    * @var string - prefix for Laravel route names pertaining to this resource; for
-   * example, for a route named 'api.foomodels.create', the route name prefix is
+   * example, for a route named 'api.foomodel.create', the route name prefix is
    * 'api.foomodels'.
    */
   public string $routeNamePrefix;
@@ -87,27 +87,22 @@ class ResourceNodeSchema {
    * @param string|null $modelClass - Eloquent Model class this resource represents; explicitly passed
    *   for root resources, otherwise derived from other parameter
    * @param ResourceNodeSchema|null $parent ,
-   * @param HasOneOrMany|null $relation
-   * @param string|null $relationMethodName
+   * @param Array|null $relationData
    * @throws Exception
    */
   protected function __construct(
     ?string $modelClass,
     ?ResourceNodeSchema $parent,
-    ?HasOneOrMany $relation,
-    ?string $relationMethodName
+    ?Array $relationData = null
   ) {
-    if ($relation) {
+    if ($relationData) {
 
       // Creating a sub-resource
-      if (! ($parent && $relationMethodName)) {
-        throw new Exception("missing required arguments for sub-resource");
-      }
-      $this->modelClass = get_class($relation->getRelated());
+      $this->modelClass = $relationData['qualifiedClassName'];
       $this->parent = $parent;
-      $this->parentForeignKeyName = $relation->getForeignKeyName();
-      $this->relationMethodName = $relationMethodName;
-      $this->name = strtolower($relationMethodName);
+      $this->parentForeignKeyName = $relationData['foreignKeyName'];
+      $this->relationMethodName = $relationData['methodName'];
+      $this->name = strtolower($relationData['methodName']);
 
     } else {
 
@@ -116,7 +111,7 @@ class ResourceNodeSchema {
         throw new Exception("missing required arguments for root-resource");
       }
       $this->modelClass = $modelClass;
-      $this->name = static::deriveNameFromModelClass($modelClass, true);
+      $this->name = static::deriveNameFromModelClass($modelClass, false);
     }
 
     // Common to both root-resource and sub-resource
@@ -129,15 +124,14 @@ class ResourceNodeSchema {
   }
 
   public static function createRootResourceNode(string $modelClass) {
-    return new self($modelClass, null, null, null);
+    return new self($modelClass, null, null);
   }
 
   public static function createSubResourceNode(
     ResourceNodeSchema $parent,
-    HasOneOrMany $relation,
-    string $relationMethodName
+    Array $relationData
   ) {
-    return new self(null, $parent, $relation, $relationMethodName);
+    return new self(null, $parent, $relationData);
   }
 
 
