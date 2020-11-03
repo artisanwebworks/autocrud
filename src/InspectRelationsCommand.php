@@ -60,7 +60,7 @@ class InspectRelationsCommand extends Command {
 
       $resourceType = strtolower($shortClassName);
       foreach (inspectRelations($qualifiedClass, $reflection) as $relation) {
-        $resourceRelationName = strtolower($relation['methodName']);
+        $resourceRelationName = $relation['methodName'];
         $resourceRelationsMap[$resourceType][$resourceRelationName] = [
           'type' => strtolower($relation['shortClassName']),
           'cardinality' => $relation['cardinality']

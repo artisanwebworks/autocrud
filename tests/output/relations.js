@@ -1,18 +1,18 @@
 export default {
     "barmodel": {
-        "bazmodels": {
+        "bazModels": {
             "type": "bazmodel",
             "cardinality": "many"
         }
     },
     "foomodel": {
-        "barmodels": {
+        "barModels": {
             "type": "barmodel",
             "cardinality": "many"
         }
     },
     "user": {
-        "foomodels": {
+        "fooModels": {
             "type": "foomodel",
             "cardinality": "many"
         }
