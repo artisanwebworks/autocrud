@@ -15,7 +15,7 @@ class ValidationTest extends TestBase {
     // Declare routes
     GenericAPIController::declareRoutes(FooModel::class);
 
-    static::printRoutes();
+//    static::printRoutes();
   }
 
   /** @test */
@@ -41,6 +41,17 @@ class ValidationTest extends TestBase {
     $uri = route('api.foomodel.retrieve', ['foomodel' => 777]);
     $response = $this->get($uri);
     $response->assertStatus(403 /** FORBIDDEN */);
+  }
+
+  /** @test */
+  public function update_with_custom_rule_violation_returns_error() {
+    $foo = FooModel::create(['name' => 'related foo', 'user_id' => $this->loggedInUserId]);
+    $uri = route('api.foomodel.update', ['foomodel' => $foo->id]);
+    $response = $this->patch($uri, ['name' => 'fooo']);
+    $response->assertJson(
+      ['errors' => ['name' => 'no']]
+    );
+    $response->assertStatus(422 /** UNPROCESSABLE ENTITY */);
   }
 
 }
