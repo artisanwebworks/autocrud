@@ -19,6 +19,7 @@ use Closure;
 use Exception;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 // Internal
 include_once "relation-reflection.php";
@@ -147,18 +148,23 @@ class GenericAPIController extends BaseController {
       function () use ($schema, $preview) {
         try {
 
-          // After saving the Model we must refresh() in order
-          // to populate any 'with' relations.
-          if (is_array($preview)) {
-            foreach ($preview as $i => $instance) {
-              $instance->save();
-              $preview[$i] = $instance->fresh();
+          // If post-create hooks throw an exception, roll back the operation.
+          DB::transaction(function () use (&$preview) {
+
+            // After saving the Model we must refresh() in order
+            // to populate any 'with' relations.
+            if (is_array($preview)) {
+              foreach ($preview as $i => $instance) {
+                $instance->save();
+                $preview[$i] = $instance->fresh();
+              }
             }
-          }
-          else {
-            $preview->save();
-            $preview = $preview->fresh();
-          }
+            else {
+              $preview->save();
+              $preview = $preview->fresh();
+            }
+
+          });
 
         } catch (ValidationException $e) {
 

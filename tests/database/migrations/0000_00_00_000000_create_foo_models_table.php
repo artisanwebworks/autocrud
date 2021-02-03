@@ -35,4 +35,5 @@ class CreateFooModelsTable extends Migration {
   {
     Schema::dropIfExists('foo_models');
   }
+
 }

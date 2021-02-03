@@ -93,4 +93,6 @@ return [
   |
   */
   'relations-output' => 'resources/js/relations.js'
+
+
 ];

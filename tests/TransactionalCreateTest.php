@@ -4,6 +4,7 @@
 use ArtisanWebworks\AutoCrud\GenericAPIController;
 use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 use ArtisanWebworks\AutoCrud\Test\TestBase;
+use Illuminate\Support\Facades\DB;
 
 class TransactionalCreateTest extends TestBase {
 
@@ -13,7 +14,7 @@ class TransactionalCreateTest extends TestBase {
   }
 
   /** @test */
-  public function exploding_foo_rolled_back() {
+  public function exception_in_foo_created_hook_rolls_back_create() {
     $SPECIAL_TRIGGER_NAME = "exploding foo";
     $initialFooCount = FooModel::count();
     $uri = route('api.foomodel.create');

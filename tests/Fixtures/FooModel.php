@@ -8,7 +8,7 @@ use Illuminate\Validation\ValidationException;
 
 function customValidator($attribute, $value, $fail) {
   if ($value === 'foo') {
-    $fail('The '.$attribute.' is invalid.');
+    $fail('The ' . $attribute . ' is invalid.');
   }
 }
 
@@ -23,8 +23,8 @@ class FooModel extends ValidatingModel {
       'string',
       'required',
       'min:3'
-      ]
-    ];
+    ]
+  ];
 
   protected array $messages = [
     'min' => ':attribute must be at least :min characters'
@@ -67,8 +67,15 @@ class FooModel extends ValidatingModel {
     static::created(
       function ($foo) {
         $foo->barModels()->save(new BarModel(['level' => 0]));
+
+        // To test transactional behavior, throw an exception after creation
+        // for any foo names "exploding foo".
+        if ($foo->name === "exploding foo") {
+          throw new \Exception();
+        }
+
       }
     );
   }
 
-  }
+}
