@@ -28,8 +28,8 @@ function inspectRelations($class, $reflection = null) {
     }
 
     // Right now we are only concerned with HasOne and HasMany relations
-    $isHasMany = $returnType->getName() === HasMany::class;
-    $isHasOne = $returnType->getName() === HasOne::class;
+    $isHasMany = strcmp($returnType, HasMany::class) === 0;
+    $isHasOne = strcmp($returnType, HasOne::class) === 0;
     if ($isHasOne || $isHasMany) {
 
       $blankEntity = new $class();
