@@ -4,6 +4,8 @@ namespace ArtisanWebworks\AutoCrud\Test\Fixtures;
 
 use ArtisanWebworks\AutoCrud\ValidatingModel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use Illuminate\Validation\ValidationException;
 
 function customValidator($attribute, $value, $fail) {
@@ -55,6 +57,11 @@ class FooModel extends ValidatingModel {
   public function barModels(): HasMany {
     return $this->hasMany('ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel');
   }
+
+  public function bestFriend(): HasOne {
+    return $this->hasOne('ArtisanWebworks\AutoCrud\Test\Fixtures\BestFriend');
+  }
+
 
 
   // ---------- EVENTS ---------- //

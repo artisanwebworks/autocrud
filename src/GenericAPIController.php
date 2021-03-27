@@ -345,16 +345,21 @@ class GenericAPIController extends BaseController {
     // comments sub-resource, acting on id stack [i, j, k]
 
     static::declareCreateRoute($schema);
-    static::declareBulkCreateRoute($schema);
     static::declareRetrieveOneRoute($schema);
-    static::declareRetrieveManyRoute($schema);
     static::declareUpdateRoute($schema);
     static::declareDeleteRoute($schema);
+
+    if ($schema->cardinality === "many") {
+      static::declareBulkCreateRoute($schema);
+      static::declareRetrieveManyRoute($schema);
+    }
   }
 
   protected static function declareCreateRoute(ResourceNodeSchema $schema) {
     Route::post(
-      $schema->routeURIPrefix,
+
+      $schema->generateRouteUrl(false),
+
       function (Request $req, ...$uriIdStack) use ($schema) {
         static::castUriIdsToInt($uriIdStack);
 
@@ -392,7 +397,9 @@ class GenericAPIController extends BaseController {
 
   protected static function declareBulkCreateRoute(ResourceNodeSchema $schema) {
     Route::post(
-      $schema->routeURIPrefix . '-bulk',
+
+      $schema->generateRouteUrl(false) . '-bulk',
+
       function (Request $req, ...$uriIdStack) use ($schema) {
         static::castUriIdsToInt($uriIdStack);
 
@@ -438,8 +445,16 @@ class GenericAPIController extends BaseController {
   protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema
   ) {
     Route::get(
-      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
+
+      $schema->generateRouteUrl(true),
+
       function (...$uriIdStack) use ($schema) {
+
+        // If this is a has-one relation of parent, infer its resource id and push
+        // to top of stack derived from URI.
+        if ($schema->isHasOneRelation()) {
+          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
+        }
 
         if (!$schema->verifyLineage($uriIdStack)) {
           return static::authorizationFailureResponse();
@@ -464,7 +479,7 @@ class GenericAPIController extends BaseController {
   protected static function declareRetrieveManyRoute(ResourceNodeSchema $schema
   ) {
     Route::get(
-      $schema->routeURIPrefix,
+      $schema->generateRouteUrl(false),
       function (...$uriIdStack) use ($schema) {
 
         // Top of the URI id stack (if any), represents parent resource, so
@@ -490,8 +505,14 @@ class GenericAPIController extends BaseController {
 
   protected static function declareUpdateRoute(ResourceNodeSchema $schema) {
     Route::patch(
-      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
+      $schema->generateRouteUrl(true),
       function (Request $req, ...$uriIdStack) use ($schema) {
+
+        // If this is a has-one relation of parent, infer its resource id and push
+        // to top of stack derived from URI.
+        if ($schema->isHasOneRelation()) {
+          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
+        }
 
         if (!$schema->verifyLineage($uriIdStack)) {
           return static::authorizationFailureResponse();
@@ -522,8 +543,14 @@ class GenericAPIController extends BaseController {
 
   protected static function declareDeleteRoute(ResourceNodeSchema $schema) {
     Route::delete(
-      $schema->routeURIPrefix . '/{' . $schema->uriIdName . '}',
+      $schema->generateRouteUrl(true),
       function (...$uriIdStack) use ($schema) {
+
+        // If this is a has-one relation of parent, infer its resource id and push
+        // to top of stack derived from URI.
+        if ($schema->isHasOneRelation()) {
+          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
+        }
 
         if (!$schema->verifyLineage($uriIdStack)) {
           return static::authorizationFailureResponse();

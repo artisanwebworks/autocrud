@@ -80,6 +80,12 @@ class ResourceNodeSchema {
    */
   public ?string $parentForeignKeyName = null;
 
+  /**
+   * @var string|null - cardinality to the parent; indicates if parent has "one" or "many"
+   *   of the sub-resource.
+   */
+  public ?string $cardinality = null;
+
 
   // ---------- CONSTRUCTORS ---------- //
 
@@ -103,6 +109,7 @@ class ResourceNodeSchema {
       $this->parentForeignKeyName = $relationData['foreignKeyName'];
       $this->relationMethodName = $relationData['methodName'];
       $this->name = strtolower($relationData['methodName']);
+      $this->cardinality = $relationData['cardinality'];
 
     } else {
 
@@ -112,6 +119,9 @@ class ResourceNodeSchema {
       }
       $this->modelClass = $modelClass;
       $this->name = static::deriveNameFromModelClass($modelClass, false);
+
+      // Treat the root resource as a collection.
+      $this->cardinality = "many";
     }
 
     // Common to both root-resource and sub-resource
@@ -202,6 +212,39 @@ class ResourceNodeSchema {
     return true;
   }
 
+  public function generateRouteUrl(bool $requiresResourceId) : string {
+
+    $url = $this->routeURIPrefix;
+
+    if ($requiresResourceId && !$this->isHasOneRelation()) {
+      return $url . '/{' . $this->uriIdName . '}';
+    }
+
+    return $url;
+  }
+
+  public function isHasOneRelation(): bool {
+    return $this->cardinality === "one";
+  }
+
+  /**
+   * If foo has a has-one relation bar, bar's id is not passed in the
+   * API route URI; instead we have 'foo/{foo}/bar'. This method
+   * find's bar id, given there is only one for each foo.
+   *
+   * @param $uriIdStack - stack of id's passed in via route URI.
+   * @return int - id of this resource node instance, given parent.
+   */
+  public function inferHasOneId($uriIdStack): int {
+    $parentId = end($uriIdStack);
+    $query =
+      "select id from {$this->table} ".
+      "where {$this->parentForeignKeyName} = ? ".
+      "limit 1";
+    $result = DB::select($query, [$parentId]);
+    return $result[0]->id;
+  }
+
 
   // ---------- HELPERS ---------- //
 
@@ -222,4 +265,5 @@ class ResourceNodeSchema {
         return $singular.'s';
     }
   }
+
 }
