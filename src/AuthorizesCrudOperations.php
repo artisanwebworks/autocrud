@@ -9,14 +9,14 @@ use Illuminate\Database\Eloquent\Model;
 trait AuthorizesCrudOperations {
 
   /**
-   * @param ResourceNodeSchema $node
+   * @param ResourcePathNodeSchema $node
    * @param $userId
    * @param $ancestorIdStack
    * @param $preview -- a single model or an array of models (for bulk operations)
    * @return bool
    */
   protected static function createOrUpdateIsAuthorized(
-    ResourceNodeSchema $node,
+    ResourcePathNodeSchema $node,
     $userId,
     $ancestorIdStack,
     $preview
@@ -44,7 +44,7 @@ trait AuthorizesCrudOperations {
   }
 
   protected static function retrieveOneIsAuthorized(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     $userId,
     $lineageIdStack
   ) {
@@ -56,7 +56,7 @@ trait AuthorizesCrudOperations {
   }
 
   protected static function retrieveManyIsAuthorized(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     $userId,
     $ancestorIdStack
   ) {
@@ -78,7 +78,7 @@ trait AuthorizesCrudOperations {
   }
 
   protected static function deleteIsAuthorized(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     $userId,
     $lineageIdStack
   ) {
@@ -91,13 +91,13 @@ trait AuthorizesCrudOperations {
 
   /**
    * @param $lineageIdStack
-   * @param ResourceNodeSchema|null $nextNode
+   * @param ResourcePathNodeSchema|null $nextNode
    * @param $userId
    * @return bool
    */
   protected static function settleAuthorizationWithResourceLineage(
     $lineageIdStack,
-    ?ResourceNodeSchema $nextNode,
+    ?ResourcePathNodeSchema $nextNode,
     $userId
   ): bool {
 

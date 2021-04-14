@@ -6,6 +6,7 @@ namespace ArtisanWebworks\AutoCrud\Test;
 
 use ArtisanWebworks\AutoCrud\GenericAPIController;
 use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 class BulkCrudTest extends TestBase {
 
@@ -19,18 +20,9 @@ class BulkCrudTest extends TestBase {
   }
 
   /** @test */
-  public function bulk_create_root_resource_foo_models() {
-
+  public function bulk_create_root_resource_is_disabled() {
+    $this->expectException(RouteNotFoundException::class);
     $uri = route('api.foomodel.bulk-create');
-    $args = [
-      ['name' => 'foo 1', 'user_id' => $this->loggedInUserId],
-      ['name' => 'foo 2', 'user_id' => $this->loggedInUserId],
-      ['name' => 'foo 3', 'user_id' => $this->loggedInUserId]
-    ];
-
-    $response = $this->post($uri, $args);
-    $response->assertJson($args);
-    $response->assertStatus(200 /** OK */);
   }
 
   /** @test */
@@ -44,25 +36,6 @@ class BulkCrudTest extends TestBase {
       ['level' => 3],
     ];
     $response = $this->post($uri, $args);
-//    $response->assertJson($args);
     $response->assertStatus(200 /** OK */);
-  }
-
-  /** @test */
-  public function bulk_create_foo_models_fails_if_any_reject() {
-
-    $uri = route('api.foomodel.bulk-create');
-    $args = [
-      ['name' => 'foo 1', 'user_id' => $this->loggedInUserId],
-      ['name' => 'foo 2', 'user_id' => $this->loggedInUserId],
-      ['name' => 'foo 3', 'user_id' => 777]
-    ];
-
-    $response = $this->post($uri, $args);
-    $response->assertJson(
-      ["errors" => ["client doesn't have access to resource"]]
-    );
-
-    $response->assertStatus(403 /** FORBIDDEN */);
   }
 }

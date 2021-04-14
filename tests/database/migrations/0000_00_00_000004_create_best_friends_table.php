@@ -14,7 +14,7 @@ class CreateBestFriendsTable extends Migration {
   public function up()
   {
     Schema::create('best_friends', function (Blueprint $table) {
-      $table->bigIncrements('id');
+      $table->bigIncrements('id')->startingValue(1000000);
       $table->string('name');
       $table->timestamps();
 

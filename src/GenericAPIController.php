@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use phpDocumentor\Reflection\Types\True_;
 use ReflectionException;
 use Symfony\Component\HttpFoundation\Response;
 use Closure;
@@ -79,12 +80,12 @@ class GenericAPIController extends BaseController {
   ) {
     $depth =
       $options['recursion-depth'] ?? config('auto-crud.recursion-depth', 10);
-    $rootNode = ResourceNodeSchema::createRootResourceNode($forModelType);
-    GenericAPIController::recursivelyDeclareRelationRoutes([$rootNode], $depth);
+    $rootNode = ResourcePathNodeSchema::createRootResourceNode($forModelType);
+    GenericAPIController::recursivelyDeclareRelationRoutes($rootNode, $depth);
   }
 
   protected static function retrieveOne(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     int $id
   ): JsonResponse {
     return static::tryCRUD(
@@ -104,7 +105,7 @@ class GenericAPIController extends BaseController {
   }
 
   protected static function retrieveAll(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     ?int $parentId
   ): JsonResponse {
     return static::tryCRUD(
@@ -136,12 +137,12 @@ class GenericAPIController extends BaseController {
    * If $existingModelId specified, updates model, otherwise creates new one.
    * Extraneous request parameters will result in error.
    *
-   * @param ResourceNodeSchema $schema
+   * @param ResourcePathNodeSchema $schema
    * @param ValidatingModel|array $preview
    * @return JsonResponse - the updated/created json resource, or an error response
    */
   protected static function saveModelPreview(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     $preview
   ): JsonResponse {
     return static::tryCRUD(
@@ -188,7 +189,7 @@ class GenericAPIController extends BaseController {
   }
 
   public static function delete(
-    ResourceNodeSchema $schema,
+    ResourcePathNodeSchema $schema,
     int $modelId
   ): JsonResponse {
     return static::tryCRUD(
@@ -299,43 +300,37 @@ class GenericAPIController extends BaseController {
   /**
    * Infer a set of resource routes by inspecting an Eloquent model and its relations.
    *
-   * @param array<ResourceNodeSchema> $lineage - list of ResourceNodeSchema corresponding to a series of
-   *   related resource as expressed along a REST resource URI path.
+   * @param ResourcePathNodeSchema $head - the end of a chain of resource schemas
    * @param $maxDepth
    * @throws ReflectionException
    */
   protected static function recursivelyDeclareRelationRoutes(
-    array $lineage,
+    ResourcePathNodeSchema $head,
     $maxDepth
   ) {
 
-    /** @var ResourceNodeSchema $currentNode */
-    $currentNode = end($lineage);
+    static::declareImmediateRoutesForNode($head);
 
-    static::declareImmediateRoutesForNode($currentNode);
-
-    // We will only expose sub-resources to a specified depth
-    if ($currentNode->depth === $maxDepth) {
+    if ($head->depth === $maxDepth) {
       return;
     }
 
-    // Iterate through public methods belonging to the current node's Eloquent model,
-    // looking for relations that should be exposed as sub-resources.
-    $relations = inspectRelations($currentNode->modelClass);
+    $relations = enumerateRelations($head->modelClass);
+
+    // Create a new branch path for every relation
     foreach ($relations as $relationData) {
 
-      // Push new resource schema onto lineage chain
-      $lineage[] = ResourceNodeSchema::createSubResourceNode(
-        $currentNode,
+      $branch = ResourcePathNodeSchema::createSubResourceNode(
+        $head,
         $relationData
       );
 
-      static::recursivelyDeclareRelationRoutes($lineage, $maxDepth);
+      static::recursivelyDeclareRelationRoutes($branch, $maxDepth);
     }
   }
 
   protected static function declareImmediateRoutesForNode(
-    ResourceNodeSchema $schema
+    ResourcePathNodeSchema $schema
   ) {
 
     // The various CRUD operations are implemented by applying the
@@ -344,231 +339,177 @@ class GenericAPIController extends BaseController {
     // on 'users/i/posts/j/comments/k' is fulfilled by a schema for the
     // comments sub-resource, acting on id stack [i, j, k]
 
-    static::declareCreateRoute($schema);
+    if ($schema->parent) {
+
+      // Creation and deletion limited to sub-resources
+      static::declareCreateRoute($schema);
+      static::declareDeleteRoute($schema);
+      if ($schema->cardinality === "many") {
+        static::declareBulkCreateRoute($schema);
+        static::declareRetrieveManyRoute($schema);
+      }
+    }
+
     static::declareRetrieveOneRoute($schema);
     static::declareUpdateRoute($schema);
-    static::declareDeleteRoute($schema);
 
-    if ($schema->cardinality === "many") {
-      static::declareBulkCreateRoute($schema);
-      static::declareRetrieveManyRoute($schema);
-    }
   }
 
-  protected static function declareCreateRoute(ResourceNodeSchema $schema) {
-    Route::post(
+  /**
+   * Return a Closure which performs the action for an CRUD route. Wraps CRUD
+   * logic in validation and access control, as well as resolving the endpoint
+   * to a specific resource, in the form of an Eloquent Model id.
+   *
+   * @param $schema
+   * @param $crudLogic -- callback that performs CRUD logic and returns a response
+   * @param bool $isInContextOfExistingInstance -- false for create, and retrieve-all contexts
+   * @return Closure -- returns a closure, which when invoked performs generic API
+   *  endpoint access control and resolution, then invokes the $crudLogic callback,
+   *  and relays its response result.
+   */
+  protected static function declareRouteAction(
+    $schema,
+    $crudLogic,
+    $isInContextOfExistingInstance = true
+  ): Closure {
 
+    return function (Request $req, ...$uriIdStack) use (
+      $schema,
+      $crudLogic,
+      $isInContextOfExistingInstance
+    ) {
+
+      static::castUriIdsToInt($uriIdStack);
+
+      try {
+        $endpointResourceId =
+          self::resolvePathEndpointInstance(
+            $uriIdStack,
+            $schema,
+            $isInContextOfExistingInstance
+          );
+      } catch (Exception $e) {
+        return static::authorizationFailureResponse();
+      }
+
+       $args = [
+         'request-data' => $req->all(),
+         'endpoint-resource-id' => $endpointResourceId
+       ];
+
+       return $crudLogic($schema, $args);
+    };
+
+  }
+
+  protected static function declareCreateRoute(ResourcePathNodeSchema $schema) {
+
+    $createLogic = function ($schema, $crudLogicArgs) {
+
+      // If a sub-resource route, automatically include in creation arguments
+      // the foreign key field referencing the parent.
+      $createArgs = $crudLogicArgs['request-data'];
+      if ($schema->parent) {
+        $parentId = $crudLogicArgs['endpoint-resource-id'];
+        $createArgs[$schema->parentForeignKeyName] = $parentId;
+      }
+
+      // Instantiate (but don't yet save) the new model.
+      $modelPreview = $schema->modelClass::make($createArgs);
+
+      return static::saveModelPreview($schema, $modelPreview);
+    };
+
+    Route::post(
       $schema->generateRouteUrl(false),
-
-      function (Request $req, ...$uriIdStack) use ($schema) {
-        static::castUriIdsToInt($uriIdStack);
-
-        // Top of the URI id stack (if any), represents parent resource, so
-        // we verify lineage relations starting with parent.
-        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
-        }
-
-        // If a sub-resource route, automatically include in creation arguments
-        // the foreign key field referencing the parent.
-        $args = $req->all();
-        if ($schema->parent) {
-          $args[$schema->parentForeignKeyName] = end($uriIdStack);
-        }
-
-        // Instantiate (but don't yet save) the new model.
-        $modelPreview = $schema->modelClass::make($args);
-
-        if (
-        !static::createOrUpdateIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack,
-          $modelPreview
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        return static::saveModelPreview($schema, $modelPreview);
-      }
+      self::declareRouteAction($schema, $createLogic, false)
     )->name("{$schema->routeNamePrefix}." . Operation::CREATE);
+
   }
 
-  protected static function declareBulkCreateRoute(ResourceNodeSchema $schema) {
-    Route::post(
+  protected static function declareBulkCreateRoute(ResourcePathNodeSchema $schema) {
 
-      $schema->generateRouteUrl(false) . '-bulk',
+    $bulkCreateLogic = function ($schema, $crudLogicArgs) {
 
-      function (Request $req, ...$uriIdStack) use ($schema) {
-        static::castUriIdsToInt($uriIdStack);
-
-        // Top of the URI id stack (if any), represents parent resource, so
-        // we verify lineage relations starting with parent.
-        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
+      // If a sub-resource route, automatically include in creation arguments
+      // the foreign key field referencing the parent.
+      $argsSet = $crudLogicArgs['request-data'];
+      if ($schema->parent) {
+        foreach ($argsSet as $i => $args) {
+          $argsSet[$i][$schema->parentForeignKeyName] =
+            $crudLogicArgs['endpoint-resource-id'];
         }
-
-        // If a sub-resource route, automatically include in creation arguments
-        // the foreign key field referencing the parent.
-        $argsSet = $req->all();
-        if ($schema->parent) {
-          foreach ($argsSet as $i => $args) {
-            $argsSet[$i][$schema->parentForeignKeyName] = end($uriIdStack);
-          }
-        }
-
-        // Instantiate (but don't yet save) the new model.
-        $modelPreviews = array_map(
-          function ($args) use ($schema) {
-            return $schema->modelClass::make($args);
-          },
-          $argsSet
-        );
-
-        if (
-        !static::createOrUpdateIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack,
-          $modelPreviews
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        return static::saveModelPreview($schema, $modelPreviews);
       }
+
+      // Instantiate (but don't yet save) the new model.
+      $modelPreviews = array_map(
+        function ($args) use ($schema) {
+          return $schema->modelClass::make($args);
+        },
+        $argsSet
+      );
+
+      return static::saveModelPreview($schema, $modelPreviews);
+    };
+
+    Route::post(
+      $schema->generateRouteUrl(false) . '-bulk',
+      self::declareRouteAction($schema, $bulkCreateLogic, false)
     )->name("{$schema->routeNamePrefix}.bulk-" . Operation::CREATE);
   }
 
-  protected static function declareRetrieveOneRoute(ResourceNodeSchema $schema
+  protected static function declareRetrieveOneRoute(ResourcePathNodeSchema $schema
   ) {
+    $retrieveOneLogic = function ($schema, $crudLogicArgs) {
+      return static::retrieveOne($schema, $crudLogicArgs['endpoint-resource-id']);
+    };
+
     Route::get(
-
       $schema->generateRouteUrl(true),
-
-      function (...$uriIdStack) use ($schema) {
-
-        // If this is a has-one relation of parent, infer its resource id and push
-        // to top of stack derived from URI.
-        if ($schema->isHasOneRelation()) {
-          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
-        }
-
-        if (!$schema->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
-        }
-
-        if (
-        !static::retrieveOneIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        $id = end($uriIdStack);
-        return static::retrieveOne($schema, $id);
-      }
+      self::declareRouteAction($schema, $retrieveOneLogic)
     )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE);
   }
 
-  protected static function declareRetrieveManyRoute(ResourceNodeSchema $schema
+  protected static function declareRetrieveManyRoute(ResourcePathNodeSchema $schema
   ) {
+    $retrieveManyLogic = function ($schema, $crudLogicArgs) {
+      return static::retrieveAll(
+        $schema,
+        $crudLogicArgs['endpoint-resource-id'],
+      );
+    };
+
     Route::get(
       $schema->generateRouteUrl(false),
-      function (...$uriIdStack) use ($schema) {
-
-        // Top of the URI id stack (if any), represents parent resource, so
-        // we verify lineage relations starting with parent.
-        if ($schema->parent && !$schema->parent->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
-        }
-
-        if (
-        !static::retrieveManyIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        return static::retrieveAll($schema, end($uriIdStack));
-      }
+      self::declareRouteAction($schema, $retrieveManyLogic, false)
     )->name("{$schema->routeNamePrefix}." . Operation::RETRIEVE_ALL);
   }
 
-  protected static function declareUpdateRoute(ResourceNodeSchema $schema) {
+  protected static function declareUpdateRoute(ResourcePathNodeSchema $schema) {
+
+    $updateLogic = function ($schema, $crudLogicArgs) {
+      $previewModel = $schema->modelClass::find(
+        $crudLogicArgs['endpoint-resource-id']
+      );
+      $previewModel->fill($crudLogicArgs['request-data']);
+      return static::saveModelPreview($schema, $previewModel);
+    };
+
     Route::patch(
       $schema->generateRouteUrl(true),
-      function (Request $req, ...$uriIdStack) use ($schema) {
-
-        // If this is a has-one relation of parent, infer its resource id and push
-        // to top of stack derived from URI.
-        if ($schema->isHasOneRelation()) {
-          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
-        }
-
-        if (!$schema->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
-        }
-
-        $id = array_pop($uriIdStack);
-        $previewModel = $schema->modelClass::find($id);
-        if (!$previewModel) {
-          return static::authorizationFailureResponse();
-        }
-        $previewModel->fill($req->all());
-
-        if (
-        !static::createOrUpdateIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack,
-          $previewModel
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        return static::saveModelPreview($schema, $previewModel);
-      }
+      self::declareRouteAction($schema, $updateLogic)
     )->name("{$schema->routeNamePrefix}." . Operation::UPDATE);
   }
 
-  protected static function declareDeleteRoute(ResourceNodeSchema $schema) {
+  protected static function declareDeleteRoute(ResourcePathNodeSchema $schema) {
+
+    $deleteLogic = function ($schema, $crudLogicArgs) {
+      return static::delete($schema, $crudLogicArgs['endpoint-resource-id']);
+    };
+
     Route::delete(
       $schema->generateRouteUrl(true),
-      function (...$uriIdStack) use ($schema) {
-
-        // If this is a has-one relation of parent, infer its resource id and push
-        // to top of stack derived from URI.
-        if ($schema->isHasOneRelation()) {
-          $uriIdStack[] = $schema->inferHasOneId($uriIdStack);
-        }
-
-        if (!$schema->verifyLineage($uriIdStack)) {
-          return static::authorizationFailureResponse();
-        }
-
-        if (
-        !static::deleteIsAuthorized(
-          $schema,
-          Auth::id(),
-          $uriIdStack
-        )
-        ) {
-          return static::authorizationFailureResponse();
-        }
-
-        $id = end($uriIdStack);
-        return static::delete($schema, $id);
-      }
+      self::declareRouteAction($schema, $deleteLogic)
     )->name("{$schema->routeNamePrefix}." . Operation::DELETE);
   }
 
@@ -583,6 +524,156 @@ class GenericAPIController extends BaseController {
     );
   }
 
+  /**
+   * Given a a stack of id stack, resolve the end-most defined resource instance in a chain of
+   * sub-resources stemming from a root resource.
+   *
+   * For certain resolution contexts (namely creation, and mass retrieval), the id stack does
+   * not identify an instance for end-most resource schema, in which case the end-most
+   * *defined* resource is an instance of the parent-schema, second from end.
+   *
+   * Throws if...
+   *
+   *  1. Auth user is not connected to the root resource instance.
+   *  2. The relations implied by the $uriIdStack do not exist.
+   *
+   * @param array $uriIdStack
+   *
+   * @param ResourcePathNodeSchema $pathEndpoint - the end-most resource schema node
+   *
+   * @param bool $isInContextOfExistingInstance false if endpoint is called in the context of
+   *  resource creation, or mass retrieval, meaning there is no id on the top of the stack representing
+   *  a specific resource instance.
+   *
+   * @return int id of the end-most defined instance; in the cases of create and retrieve-many,
+   *  corresponding to parent schema, in all other cases, corresponding to the endpoint schema.
+   *
+   * @throws ResourceNotFoundException
+   * @throws ResourceAccessDeniedException
+   */
+  protected static function resolvePathEndpointInstance(
+    array $uriIdStack,
+    ResourcePathNodeSchema $pathEndpoint,
+    bool $isInContextOfExistingInstance = true
+  ): int {
+
+    // Verify access to path root
+    $rootSchema = $pathEndpoint->getRoot();
+
+    // Pop the root id from front of stack.
+    $rootId = array_shift($uriIdStack);
+
+    if (!self::authUserCanAccess($rootSchema, $rootId)) {
+      throw new ResourceAccessDeniedException();
+    }
+
+    // Traverse parent-child relations starting from path root.
+    $parentId = $rootId;
+    for (
+      $parent = $rootSchema;
+      $parent->child;
+      $parent = $parent->child
+    ) {
+
+      $child = $parent->child;
+
+      if ($child->cardinality === "many") {
+
+        // When foo has a "has many" relation to bar, the resource path URI includes a bar id;
+        // eg, '/foos/1/bars/22',  yielding $uriIdStack [1, 22], except
+        // in the context of creation, where the endpoint id is undefined
+
+        if (empty($uriIdStack)) {
+
+          // We only accept an undefined path node if it is the end node in the
+          // context of creation
+          if ($isInContextOfExistingInstance || $child->child) {
+            throw new ResourceNotFoundException();
+          }
+
+        } else {
+
+          // When node is defined by an id, check that it is indeed a valid
+          // relation to parent.
+
+          $childId = array_shift($uriIdStack);
+
+          $records = DB::table($child->table)
+            ->where('id', '=', $childId)
+            ->where($child->parentForeignKeyName, '=', $parentId)
+            ->get();
+
+          if ($records->count() !== 1) {
+            throw new ResourceNotFoundException();
+          }
+
+          $parentId = $childId;
+        }
+
+
+      } else {
+
+        // When foo  has a "has one" relation to bar, no bar id is specified in path,
+        // eg, '/foos/1/bar', yields $uriIdStack [1]
+        // In this case, there should be exactly one record in child table referencing
+        // parent, hence we need not supply an id to find it.
+
+        if ($isInContextOfExistingInstance || $child->child /** not end-most */) {
+
+          // We must verify the has one relation,
+          $childRecord = DB::table($child->table)
+            ->where($child->parentForeignKeyName, '=', $parentId)
+            ->get()
+            ->first();
+          if (!$childRecord) {
+            throw new ResourceNotFoundException();
+          }
+          $parentId = (int)$childRecord->id;
+        }
+
+      }
+
+    }
+
+    // Return id of last defined path-node resource, which within create context,
+    // is the parent resource, and in all other contexts, the endpoint resource
+    return $parentId;
+
+  }
+
+  /**
+   * Returns true if the
+   *
+   * @param ResourcePathNodeSchema $node
+   * @param int $id
+   * @return bool
+   */
+  protected static function authUserCanAccess(
+    ResourcePathNodeSchema $node,
+    int $id
+  ): bool {
+
+    $rawRecord = DB::table($node->table)
+      ->where('id', $id)
+      ->get()
+      ->first();
+
+    foreach (config('auto-crud.access-rules') as $rule) {
+
+      // Don't need to check rules that specify a non-matching model condition.
+      if (isset($rule['model']) && $rule['model'] !== $node->modelClass) {
+        continue;
+      }
+
+      $userIdPropName = $rule['user-id-property'];
+      if (Auth::id() == $rawRecord->$userIdPropName) {
+        return true;
+      }
+
+    }
+
+    return false;
+  }
 }
 
 

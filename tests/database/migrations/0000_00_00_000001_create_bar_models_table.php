@@ -14,7 +14,7 @@ class CreateBarModelsTable extends Migration {
   public function up()
   {
     Schema::create('bar_models', function (Blueprint $table) {
-      $table->bigIncrements('id');
+      $table->bigIncrements('id')->startingValue(1000);
       $table->integer('level');
       $table->timestamps();
       

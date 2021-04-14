@@ -13,4 +13,23 @@ class BarModel extends ValidatingModel {
     return $this->hasMany(BazModel::class);
   }
 
+  // ---------- EVENTS ---------- //
+
+  protected static function booted() {
+
+    // Automatically create a bar relation on create
+    // (so we can confirm it is automatically expanded in
+    // the API create result)
+    static::created(
+      function ($foo) {
+
+        // To test transactional behavior, throw an exception after creation
+        // for with level 13
+        if ($foo->level === 13) {
+          throw new \Exception();
+        }
+
+      }
+    );
+  }
 }

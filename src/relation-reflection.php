@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @return array
  * @throws ReflectionException
  */
-function inspectRelations($class, $reflection = null) {
+function enumerateRelations($class, $reflection = null) {
 
   if (!$reflection) {
     $reflection = new \ReflectionClass($class);

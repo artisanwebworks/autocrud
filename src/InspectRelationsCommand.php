@@ -59,7 +59,7 @@ class InspectRelationsCommand extends Command {
       }
 
       $resourceType = strtolower($shortClassName);
-      foreach (inspectRelations($qualifiedClass, $reflection) as $relation) {
+      foreach (enumerateRelations($qualifiedClass, $reflection) as $relation) {
         $resourceRelationName = $relation['methodName'];
         $resourceRelationsMap[$resourceType][$resourceRelationName] = [
           'type' => strtolower($relation['shortClassName']),

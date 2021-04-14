@@ -1,10 +1,11 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateBazModelsTable extends Migration {
+class CreatePetsTable extends Migration {
 
   /**
    * Run the migrations.
@@ -13,16 +14,17 @@ class CreateBazModelsTable extends Migration {
    */
   public function up()
   {
-    Schema::create('baz_models', function (Blueprint $table) {
-      $table->bigIncrements('id')->startingValue(10000);
-      $table->boolean('can-recognize')->default(false);
+    Schema::create('pets', function (Blueprint $table) {
+      $table->bigIncrements('id')->startingValue(10000000);
+      $table->string('animal_type');
       $table->timestamps();
-      
-      $table->unsignedBigInteger('bar_model_id');
+
+      $table->unsignedBigInteger('best_friend_id');
       $table
-        ->foreign('bar_model_id')
-        ->references('id')->on('bar_models')
+        ->foreign('best_friend_id')
+        ->references('id')->on('best_friends')
         ->onDelete("cascade");
+
     });
   }
 
@@ -33,6 +35,6 @@ class CreateBazModelsTable extends Migration {
    */
   public function down()
   {
-    Schema::dropIfExists('baz_models');
+    Schema::dropIfExists('pets');
   }
 }

@@ -31,8 +31,13 @@ abstract class TestBase extends TestCase {
         'prefix'   => '',
       ]
     );
+
     $app['config']->set('auto-crud.models-directory', '../../../../../tests/Fixtures');
     $app['config']->set('auto-crud.relations-output', '../../../../tests/output/relations.js');
+    $app['config']->set('auto-crud.access-rules', [
+      ['user-id-property' => 'id', 'model' => 'ArtisanWebworks\AutoCrud\Test\Fixtures\User'],
+      ['user-id-property' => 'user_id']
+    ]);
   }
 
   /**

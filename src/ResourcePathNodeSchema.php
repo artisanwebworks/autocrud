@@ -8,14 +8,19 @@ use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Class ResourceNodeSchema
+ * Class ResourcePathNodeSchema
  *
- * Describes an API resource type, derived from a corresponding Eloquent model type,
- * and optionally described as a sub-resource based on an Eloquent relation.
+ * Describes a single node in a doubly linked list representing a resource path
+ * schema; an abstract representation of resources and sub-resources, without
+ * respect to specific resource instances.
+ *
+ * Used to define API route endpoints.
+ *
+ * List nodes are traversed via $parent, $child properties.
  *
  * @package ArtisanWebworks\AutoCrud
  */
-class ResourceNodeSchema {
+class ResourcePathNodeSchema {
 
   /**
    * @var string - the Eloquent class representing this resource.
@@ -64,9 +69,14 @@ class ResourceNodeSchema {
   // PERTAINING TO SUB-RESOURCES
 
   /**
-   * @var ResourceNodeSchema|null - the node describing the parent resource (if any).
+   * @var ResourcePathNodeSchema|null - the node describing the parent resource (if any).
    */
-  public ?ResourceNodeSchema $parent = null;
+  public ?ResourcePathNodeSchema $parent = null;
+
+  /**
+   * @var ResourcePathNodeSchema|null - the node describing the child resource (if any).
+   */
+  public ?ResourcePathNodeSchema $child = null;
 
   /**
    * @var string|null - if this is a sub resource, the method on the parent's Model returning
@@ -87,18 +97,20 @@ class ResourceNodeSchema {
   public ?string $cardinality = null;
 
 
+
+
   // ---------- CONSTRUCTORS ---------- //
 
   /**
    * @param string|null $modelClass - Eloquent Model class this resource represents; explicitly passed
    *   for root resources, otherwise derived from other parameter
-   * @param ResourceNodeSchema|null $parent ,
+   * @param ResourcePathNodeSchema|null $parent ,
    * @param Array|null $relationData
    * @throws Exception
    */
   protected function __construct(
     ?string $modelClass,
-    ?ResourceNodeSchema $parent,
+    ?ResourcePathNodeSchema $parent,
     ?Array $relationData = null
   ) {
     if ($relationData) {
@@ -106,6 +118,7 @@ class ResourceNodeSchema {
       // Creating a sub-resource
       $this->modelClass = $relationData['qualifiedClassName'];
       $this->parent = $parent;
+      $this->parent->child = $this;
       $this->parentForeignKeyName = $relationData['foreignKeyName'];
       $this->relationMethodName = $relationData['methodName'];
       $this->name = strtolower($relationData['methodName']);
@@ -138,10 +151,14 @@ class ResourceNodeSchema {
   }
 
   public static function createSubResourceNode(
-    ResourceNodeSchema $parent,
+    ResourcePathNodeSchema $parent,
     Array $relationData
   ) {
-    return new self(null, $parent, $relationData);
+
+    // We must clone the parent, because it will have a unique definition of $child
+    // for each path stemming from it -- recalling this data structure describes a node
+    // comprising a single path through a tree, NOT the tree itself.
+    return new self(null, clone $parent, $relationData);
   }
 
 
@@ -156,7 +173,11 @@ class ResourceNodeSchema {
     $uri = $this->name;
     while ($parent) {
       $routeName = $parent->name . "." . $routeName;
-      $uri = $parent->name . '/{' . $parent->uriIdName . '}/' . $uri;
+
+      $uri = $parent->name .
+        ($parent->cardinality === "many" ? '/{' . $parent->uriIdName . '}/' : "/") .
+        $uri;
+
       $parent = $parent->parent;
     }
     $apiUriPrefix = config('auto-crud.api-uri-prefix');
@@ -187,6 +208,13 @@ class ResourceNodeSchema {
       // If no further relations to examine, verification succeeded
       if (!$node->parent) {
         return true;
+      }
+
+      // If the current child-parent relation is the parent "has one" type,
+      // we skip the check, since the child id is not passed
+      if ($node->cardinality === "one") {
+        $node = $node->parent;
+        continue;
       }
 
       // There is one or more parent-child relationship left to examine, so there
@@ -245,6 +273,15 @@ class ResourceNodeSchema {
     return $result[0]->id;
   }
 
+  public function getRoot() : ResourcePathNodeSchema {
+    $node = $this;
+
+    while ($node->parent) {
+      $node = $node->parent;
+    }
+
+    return $node;
+  }
 
   // ---------- HELPERS ---------- //
 

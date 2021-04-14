@@ -5,7 +5,7 @@ namespace ArtisanWebworks\AutoCrud\Test;
 
 // Internal
 use ArtisanWebworks\AutoCrud\GenericAPIController;
-use ArtisanWebworks\AutoCrud\ResourceNodeSchema;
+use ArtisanWebworks\AutoCrud\ResourcePathNodeSchema;
 use ArtisanWebworks\AutoCrud\Test\Fixtures\BazModel;
 use ArtisanWebworks\AutoCrud\Test\Fixtures\FooModel;
 use ArtisanWebworks\AutoCrud\Test\Fixtures\BarModel;

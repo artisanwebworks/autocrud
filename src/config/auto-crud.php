@@ -36,30 +36,28 @@ return [
   |
   */
 
-  'recursion-depth' => 4,
+  'recursion-depth' => 6,
 
   /*
   |--------------------------------------------------------------------------
   | Auth-User Access Rules
   |--------------------------------------------------------------------------
   |
-  | The generated API will only permit CRUD operations on resources for which
-  | there is implied ownership to the session's auth user.
-
-  | Ownership is established when *any* ownership rule is satisfied anywhere on
-  | the relation-chain.
+  | The root of the resource path represented by a URI endpoint, must be
+  | associated with the auth user via one of the rules configured here.
   |
-  | An ownership rule definition specifies a property that must be present on
-  | the a resource's Eloquent model and equal to the auth user's id, and
-  | optionally, further specifies a specific model class.
+  | A rule is an array where key 'user-id-property' specifies which property
+  | is references the owner's user id. Optionally the 'model' key, limits
+  | the rule to specific model type (if omitted the rule applies to any
+  | model).
   |
   */
 
   'access-rules' => [
 
-    // If the sub-resource stems from a User-based resource, we expect
+    // If the root resource  User-based resource, we expect
     // the user id passed in the route to be equal to the logged in user
-    ['user-id-property' => 'id', 'model' => 'User'],
+    ['user-id-property' => 'id', 'model' => '\\App\\Model\\User'],
 
     // Further, if we encounter a 'user_id' property on any resource,
     // we will use it to accept or reject access.

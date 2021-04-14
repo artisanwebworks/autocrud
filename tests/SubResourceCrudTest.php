@@ -196,5 +196,17 @@ class SubResourceCrudTest extends TestBase {
     $foo->refresh();
     $this->assertNull($foo->bestFriend);
   }
+
+  /** @test */
+  public function has_one_then_has_many_create_resource() {
+    $foo =
+      FooModel::create(
+        ['name' => 'some foo', 'user_id' => $this->loggedInUserId]
+      );
+    $foo->bestFriend()->save($bf = new BestFriend(['name' => 'foo-friend']));
+    $uri = route("api.foomodel.bestfriend.pets.create", [$foo->id]);
+    $response = $this->post($uri, ['animal_type' => 'dog']);
+    $response->assertStatus(200);
+  }
 }
 
