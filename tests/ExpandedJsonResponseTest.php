@@ -16,7 +16,7 @@ class ExpandedJsonResponseTest extends TestBase {
     // Declare routes
     GenericAPIController::declareRoutes(User::class);
 
-    static::printRoutes();
+//    static::printRoutes();
   }
 
   /** @test */

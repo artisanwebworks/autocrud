@@ -18,7 +18,7 @@ class SubResourceCrudTest extends TestBase {
     // Declare routes
     GenericAPIController::declareRoutes(FooModel::class);
 
-    static::printRoutes();
+//    static::printRoutes();
   }
 
   /** @test */
@@ -188,7 +188,7 @@ class SubResourceCrudTest extends TestBase {
     $foo->bestFriend()->save($bf = new BestFriend(['name' => 'foo-friend']));
 
     // Delete API call
-    $uri = route("api.foomodel.bestfriend.update", [$foo->id]);
+    $uri = route("api.foomodel.bestfriend.delete", [$foo->id]);
     $response = $this->delete($uri);
     $response->assertStatus(204);
 

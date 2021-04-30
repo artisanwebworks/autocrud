@@ -150,15 +150,27 @@ class ResourcePathNodeSchema {
     return new self($modelClass, null, null);
   }
 
+  /**
+   * Deep clones the base path and appends a new head.
+   *
+   * @param ResourcePathNodeSchema $basePathHead
+   * @param array $relationData
+   * @throws Exception
+   */
   public static function createSubResourceNode(
-    ResourcePathNodeSchema $parent,
+    ResourcePathNodeSchema $basePathHead,
     Array $relationData
-  ) {
+  ): ResourcePathNodeSchema {
 
-    // We must clone the parent, because it will have a unique definition of $child
-    // for each path stemming from it -- recalling this data structure describes a node
-    // comprising a single path through a tree, NOT the tree itself.
-    return new self(null, clone $parent, $relationData);
+    $clonedBasePathHead = clone $basePathHead;
+    for ($n = $clonedBasePathHead; $n; $n = $n->parent) {
+      if ($n->parent) {
+        $n->parent = clone $n->parent;
+        $n->parent->child = $n;
+      }
+    }
+
+    return new self(null, $clonedBasePathHead, $relationData);
   }
 
 

@@ -29,7 +29,7 @@ class UriFormationTest extends TestBase {
       );
     $foo->bestFriend()->save($bf = new BestFriend(['name' => 'foo-friend']));
     $uri = route("api.foomodel.bestfriend.pets.create", [$foo->id]);
-    $this->assertSame("http://localhost/api/foomodel/1/bestfriend/pets", $uri);
+    $this->assertSame("http://localhost/api/foomodel/1000/bestfriend/pets", $uri);
   }
 }
 

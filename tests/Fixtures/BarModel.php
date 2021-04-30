@@ -24,7 +24,7 @@ class BarModel extends ValidatingModel {
       function ($foo) {
 
         // To test transactional behavior, throw an exception after creation
-        // for with level 13
+        // with level 13
         if ($foo->level === 13) {
           throw new \Exception();
         }

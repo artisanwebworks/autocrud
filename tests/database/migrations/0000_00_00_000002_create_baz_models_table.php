@@ -1,5 +1,6 @@
 <?php
 
+use ArtisanWebworks\AutoCrud\Test\Fixtures\DBHelper;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -18,12 +19,15 @@ class CreateBazModelsTable extends Migration {
       $table->boolean('can-recognize')->default(false);
       $table->timestamps();
       
-      $table->unsignedBigInteger('bar_model_id');
+      $table->unsignedBigInteger('bar_model_id')->nullable();
       $table
         ->foreign('bar_model_id')
         ->references('id')->on('bar_models')
         ->onDelete("cascade");
     });
+
+    DBHelper::setIdStartValue('baz_models', 3000);
+
   }
 
   /**
